@@ -20,7 +20,7 @@ Then run the API and web dev servers (see the README → Development).
 
 ## Ground rules
 
-- **The compute engine must stay faithful to the residuality skill.** `packages/core` is a port of the skill's Python scripts and is covered by parity tests against the gold fixtures (`ev_charging`, `gstack`). If you change an algorithm, update the tests and explain the divergence.
+- **The compute engine must stay faithful to the residuality skill.** `packages/core` is a port of the skill's Python scripts and is covered by parity tests against fixtures (`ev_charging`, `synthetic`) whose oracle sections were produced by the skill's own Python scripts. If you change an algorithm, update the tests and explain the divergence.
 - **Type-check and test before opening a PR:** `pnpm -r typecheck && pnpm -r test`.
 - Keep the graph model and the skill's `state.json` import/export round-trip working.
 - Match the surrounding code style; no linter config is enforced yet.

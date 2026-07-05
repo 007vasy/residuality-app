@@ -42,7 +42,7 @@ This app turns that method into a shared, interactive, always-live surface for r
 - **BYOK AI actions** — with your own Anthropic key: generate a diverse stressor set (all 9 categories + black swans), derive the attractor + minimal residue for any stressor, and edit the architecture from a natural-language instruction.
 - **MCP server** — drive the exact same operations from Claude Code / Desktop; changes appear live in the web UI.
 - **Multi-user collaboration** — email/password auth, project membership roles (owner/editor/viewer), WebSocket live updates.
-- **Skill-compatible** — import/export the residuality skill's `state.json`; the compute engine is a faithful, unit-tested port of the skill's Python scripts (verified against the EV-charging and gstack gold fixtures).
+- **Skill-compatible** — import/export the residuality skill's `state.json`; the compute engine is a faithful, unit-tested port of the skill's Python scripts (parity-verified against fixtures whose oracle sections were computed by the skill's own scripts).
 - **One-command deploy** — `docker compose up` brings up Neo4j + API + web.
 
 ## Using the MCP server (Claude Code)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import gstack from "../__fixtures__/gstack_state.json" with { type: "json" };
+import synthetic from "../__fixtures__/synthetic_state.json" with { type: "json" };
 import ev from "../__fixtures__/ev_charging.json" with { type: "json" };
 import { computeContagion } from "./contagion.js";
 import { computeCriticality } from "./criticality.js";
@@ -10,15 +10,17 @@ import type { Residue, Stressor } from "../schema.js";
 
 /**
  * Parity tests: the TS compute engine must reproduce the skill's Python outputs.
- * gstack_state.json is a fully-populated run (contagion + criticality already
- * computed by the skill scripts) — we recompute and assert equality.
+ * synthetic_state.json is a fully-synthetic run whose `contagion` + `criticality`
+ * sections were computed by the skill's own Python scripts (an independent oracle);
+ * we recompute with the TS port and assert equality. (No real project data ships
+ * in the repo — this fixture is fictional smart-parking data.)
  */
-describe("contagion parity vs gstack fixture", () => {
-  const residues = gstack.residue_stack as unknown as Residue[];
-  const stressors = gstack.stressors as unknown as Stressor[];
-  const couplings = (gstack.contagion?.couplings ?? []) as any;
+describe("contagion parity vs synthetic fixture", () => {
+  const residues = synthetic.residue_stack as unknown as Residue[];
+  const stressors = synthetic.stressors as unknown as Stressor[];
+  const couplings = (synthetic.contagion?.couplings ?? []) as any;
   const out = computeContagion(residues, stressors, couplings);
-  const expected = gstack.contagion as any;
+  const expected = synthetic.contagion as any;
 
   it("incidence matrix matches", () => {
     expect(out.incidence).toEqual(expected.incidence);
@@ -43,15 +45,15 @@ describe("contagion parity vs gstack fixture", () => {
   });
 });
 
-describe("criticality parity vs gstack fixture", () => {
+describe("criticality parity vs synthetic fixture", () => {
   const crit = computeCriticality({
-    naive_architecture: gstack.naive_architecture as any,
-    residue_stack: gstack.residue_stack as unknown as Residue[],
-    stressors: gstack.stressors,
-    contagion: gstack.contagion as any,
-    focus: gstack.focus as string[],
+    naive_architecture: synthetic.naive_architecture as any,
+    residue_stack: synthetic.residue_stack as unknown as Residue[],
+    stressors: synthetic.stressors,
+    contagion: synthetic.contagion as any,
+    focus: synthetic.focus as string[],
   });
-  const expected = gstack.criticality as any;
+  const expected = synthetic.criticality as any;
 
   it("N matches", () => expect(crit.N).toBe(expected.N));
   it("K matches", () => expect(crit.K).toBe(expected.K));

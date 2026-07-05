@@ -11,7 +11,7 @@
  *   orphan_residues    residues with no applies_to_stressors
  */
 import type { Contagion, Coupling, Residue, Stressor } from "../schema.js";
-import { percentile, pyRound } from "./util.js";
+import { percentile, pyFloatStr, pyRound } from "./util.js";
 
 export const SHARED_STRESSOR_BONUS = 0.15;
 export const SHARED_STRESSOR_CAP = 0.6;
@@ -102,7 +102,7 @@ export function computeContagion(
         }
       }
       const topNeighbour = residues[topIdx]!.id;
-      why = `load=${residueLoad[r.id]}, top coupling -> ${topNeighbour} (${pyRound(couplingMatrix[i]![topIdx]!, 2)})`;
+      why = `load=${residueLoad[r.id]}, top coupling -> ${topNeighbour} (${pyFloatStr(pyRound(couplingMatrix[i]![topIdx]!, 2))})`;
     }
     return { residue_id: r.id, score, why };
   });
@@ -123,7 +123,7 @@ export function computeContagion(
     .filter((c) => c.score >= threshold && c.score > 0)
     .map((c) => ({
       residue_id: c.id,
-      reason: `load*brittleness=${pyRound(c.score, 3)} >= 75th percentile (${pyRound(threshold, 3)})`,
+      reason: `load*brittleness=${pyFloatStr(pyRound(c.score, 3))} >= 75th percentile (${pyFloatStr(pyRound(threshold, 3))})`,
     }));
   hotspots.sort((a, b) => (a.reason < b.reason ? 1 : a.reason > b.reason ? -1 : 0));
   hotspots = hotspots.slice(0, 5);

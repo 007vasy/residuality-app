@@ -1,0 +1,1100 @@
+{
+  "schema_version": "1.0",
+  "project": "smart-parking (synthetic fixture)",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "mode": "analyze",
+  "focus": [],
+  "naive_architecture": {
+    "summary": "A city smart-parking network: an app reserves spots, a gate controller unlocks barriers over cellular, sensors report occupancy, and a billing service charges via a payment gateway. Fully fictional fixture data.",
+    "business_context": "Fictional example used only to unit-test the residuality compute engine.",
+    "components": [
+      {
+        "id": "C01",
+        "name": "Driver",
+        "kind": "human",
+        "responsibilities": [
+          "parks and pays"
+        ]
+      },
+      {
+        "id": "C02",
+        "name": "ParkingApp",
+        "kind": "client",
+        "responsibilities": [
+          "reserve, unlock, pay"
+        ],
+        "tech_assumptions": [
+          "react native app"
+        ]
+      },
+      {
+        "id": "C03",
+        "name": "GateController",
+        "kind": "device",
+        "responsibilities": [
+          "open and close barrier"
+        ],
+        "tech_assumptions": [
+          "arm firmware over cellular"
+        ]
+      },
+      {
+        "id": "C04",
+        "name": "SpotSensor",
+        "kind": "device",
+        "responsibilities": [
+          "report occupancy"
+        ],
+        "tech_assumptions": [
+          "lorawan sensor"
+        ]
+      },
+      {
+        "id": "C05",
+        "name": "ParkingService",
+        "kind": "service",
+        "responsibilities": [
+          "reservations, unlock orchestration"
+        ],
+        "tech_assumptions": [
+          "node service on kubernetes"
+        ]
+      },
+      {
+        "id": "C06",
+        "name": "BillingService",
+        "kind": "service",
+        "responsibilities": [
+          "rate, invoice, charge"
+        ],
+        "tech_assumptions": [
+          "node service",
+          "stripe client"
+        ]
+      },
+      {
+        "id": "C07",
+        "name": "ReservationsDB",
+        "kind": "datastore",
+        "responsibilities": [
+          "reservations, sessions"
+        ],
+        "tech_assumptions": [
+          "postgres 15"
+        ]
+      },
+      {
+        "id": "C08",
+        "name": "PaymentGateway",
+        "kind": "external",
+        "responsibilities": [
+          "capture funds"
+        ],
+        "tech_assumptions": [
+          "stripe"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "from": "C01",
+        "to": "C02",
+        "kind": "human"
+      },
+      {
+        "from": "C02",
+        "to": "C05",
+        "kind": "sync"
+      },
+      {
+        "from": "C05",
+        "to": "C07",
+        "kind": "data"
+      },
+      {
+        "from": "C05",
+        "to": "C06",
+        "kind": "async"
+      },
+      {
+        "from": "C06",
+        "to": "C08",
+        "kind": "sync"
+      },
+      {
+        "from": "C03",
+        "to": "C05",
+        "kind": "async"
+      },
+      {
+        "from": "C04",
+        "to": "C05",
+        "kind": "async"
+      }
+    ],
+    "assumptions": [
+      "single region deployment",
+      "payment gateway always reachable",
+      "sensors report occupancy within 5s"
+    ]
+  },
+  "user_stack_facts": [
+    "react native app",
+    "node service on kubernetes",
+    "postgres 15",
+    "arm firmware over cellular",
+    "lorawan sensor",
+    "stripe",
+    "stripe client"
+  ],
+  "stressors": [
+    {
+      "id": "S01",
+      "name": "Cellular outage bricks gate control at a busy site",
+      "category": "tech",
+      "novelty": 4,
+      "description": "Cellular outage bricks gate control at a busy site",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S02",
+      "name": "ReservationsDB failover drops in-flight unlock requests",
+      "category": "tech",
+      "novelty": 3,
+      "description": "ReservationsDB failover drops in-flight unlock requests",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S03",
+      "name": "Kubernetes node eviction storm during peak checkout",
+      "category": "tech",
+      "novelty": 5,
+      "description": "Kubernetes node eviction storm during peak checkout",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S04",
+      "name": "City mandates per-minute billing with published receipts",
+      "category": "regulatory",
+      "novelty": 4,
+      "description": "City mandates per-minute billing with published receipts",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S05",
+      "name": "GDPR deletion request lands mid parking session",
+      "category": "regulatory",
+      "novelty": 3,
+      "description": "GDPR deletion request lands mid parking session",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S06",
+      "name": "Competitor offers free first hour, demand spikes 5x",
+      "category": "market",
+      "novelty": 2,
+      "description": "Competitor offers free first hour, demand spikes 5x",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S07",
+      "name": "Operator runs a rate migration against prod at 3am",
+      "category": "human",
+      "novelty": 3,
+      "description": "Operator runs a rate migration against prod at 3am",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S08",
+      "name": "Support agent socially engineered into forcing a gate open",
+      "category": "human",
+      "novelty": 4,
+      "description": "Support agent socially engineered into forcing a gate open",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S09",
+      "name": "Coordinated bots reserve every spot then no-show",
+      "category": "adversarial",
+      "novelty": 5,
+      "description": "Coordinated bots reserve every spot then no-show",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S10",
+      "name": "Credential stuffing against driver accounts",
+      "category": "adversarial",
+      "novelty": 4,
+      "description": "Credential stuffing against driver accounts",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S11",
+      "name": "Cloned QR at the gate redirects payment",
+      "category": "adversarial",
+      "novelty": 3,
+      "description": "Cloned QR at the gate redirects payment",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S12",
+      "name": "Lightning takes out the cellular tower at a lot",
+      "category": "environmental",
+      "novelty": 5,
+      "description": "Lightning takes out the cellular tower at a lot",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S13",
+      "name": "Sub-zero freeze jams the barrier arm",
+      "category": "environmental",
+      "novelty": 3,
+      "description": "Sub-zero freeze jams the barrier arm",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S14",
+      "name": "Stripe outage for 45 minutes during evening peak",
+      "category": "supply-chain",
+      "novelty": 4,
+      "description": "Stripe outage for 45 minutes during evening peak",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S15",
+      "name": "Sensor vendor bankrupt, no spare LoRaWAN units",
+      "category": "supply-chain",
+      "novelty": 3,
+      "description": "Sensor vendor bankrupt, no spare LoRaWAN units",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S16",
+      "name": "Stadium event: 8000 cars arrive in 20 minutes",
+      "category": "scale",
+      "novelty": 4,
+      "description": "Stadium event: 8000 cars arrive in 20 minutes",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S17",
+      "name": "One fleet customer books 60% of a lot",
+      "category": "scale",
+      "novelty": 3,
+      "description": "One fleet customer books 60% of a lot",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S18",
+      "name": "Occupancy webhook fan-out blows the queue",
+      "category": "scale",
+      "novelty": 4,
+      "description": "Occupancy webhook fan-out blows the queue",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S19",
+      "name": "DST transition double-charges overnight sessions",
+      "category": "time",
+      "novelty": 3,
+      "description": "DST transition double-charges overnight sessions",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S20",
+      "name": "5y of session rows makes the availability query unviable",
+      "category": "time",
+      "novelty": 4,
+      "description": "5y of session rows makes the availability query unviable",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S21",
+      "name": "TLS cert on BillingService expires unnoticed",
+      "category": "tech",
+      "novelty": 3,
+      "description": "TLS cert on BillingService expires unnoticed",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S22",
+      "name": "Tailgating exploit: two cars, one unlock",
+      "category": "adversarial",
+      "novelty": 4,
+      "description": "Tailgating exploit: two cars, one unlock",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S23",
+      "name": "Driver disputes a charge and issues a chargeback",
+      "category": "human",
+      "novelty": 3,
+      "description": "Driver disputes a charge and issues a chargeback",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S24",
+      "name": "Regulator requires an immutable audit trail for gate events",
+      "category": "regulatory",
+      "novelty": 4,
+      "description": "Regulator requires an immutable audit trail for gate events",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S25",
+      "name": "Vandalism jams a foreign object into the barrier",
+      "category": "environmental",
+      "novelty": 4,
+      "description": "Vandalism jams a foreign object into the barrier",
+      "horizon": "now",
+      "source": "generated"
+    },
+    {
+      "id": "S26",
+      "name": "Flash sale on monthly passes overwhelms billing",
+      "category": "scale",
+      "novelty": 5,
+      "description": "Flash sale on monthly passes overwhelms billing",
+      "horizon": "now",
+      "source": "generated"
+    }
+  ],
+  "attractors_residues": [],
+  "residue_stack": [
+    {
+      "id": "R01",
+      "name": "Local unlock autonomy",
+      "intent": "Serve unlock from a cached per-gate budget when the service is unreachable",
+      "minimal_change_description": "Cache identity+session budget at the GateController; reconcile when connectivity returns.",
+      "applies_to_stressors": [
+        "S01",
+        "S12",
+        "S02"
+      ],
+      "stack_fit_citations": [
+        "arm firmware over cellular",
+        "postgres 15"
+      ],
+      "source_pattern": "local_autonomy",
+      "estimated_cost": "med"
+    },
+    {
+      "id": "R02",
+      "name": "Unlock redundancy",
+      "intent": "Add an attendant NFC + audited manual override for the barrier",
+      "minimal_change_description": "NFC + attendant remote override with mandatory audit log.",
+      "applies_to_stressors": [
+        "S08",
+        "S25",
+        "S13"
+      ],
+      "stack_fit_citations": [
+        "arm firmware over cellular"
+      ],
+      "source_pattern": "unlock_redundancy",
+      "estimated_cost": "med"
+    },
+    {
+      "id": "R03",
+      "name": "Idempotent billing outbox",
+      "intent": "Make charge capture idempotent through an outbox",
+      "minimal_change_description": "ParkingService writes a billing intent to an outbox; BillingService consumes idempotently.",
+      "applies_to_stressors": [
+        "S02",
+        "S14",
+        "S21"
+      ],
+      "stack_fit_citations": [
+        "node service on kubernetes",
+        "postgres 15"
+      ],
+      "source_pattern": null,
+      "estimated_cost": "med"
+    },
+    {
+      "id": "R04",
+      "name": "Per-minute billing path",
+      "intent": "Support a metered per-minute rate with published receipts",
+      "minimal_change_description": "Add a metered rate mode and receipt generation in BillingService.",
+      "applies_to_stressors": [
+        "S04",
+        "S19"
+      ],
+      "stack_fit_citations": [
+        "stripe client"
+      ],
+      "source_pattern": "per_minute_billing_path",
+      "estimated_cost": "low"
+    },
+    {
+      "id": "R05",
+      "name": "Audit log immutability",
+      "intent": "Append gate + payment events to an immutable log",
+      "minimal_change_description": "Event-source gate and charge events to an append-only, hash-chained log.",
+      "applies_to_stressors": [
+        "S24",
+        "S08",
+        "S23"
+      ],
+      "stack_fit_citations": [
+        "postgres 15"
+      ],
+      "source_pattern": "audit_log_immutability",
+      "estimated_cost": "med"
+    },
+    {
+      "id": "R06",
+      "name": "Reservation rate limit",
+      "intent": "Throttle reservations per account to defeat hoarding bots",
+      "minimal_change_description": "Token-bucket reservations per account + no-show penalty.",
+      "applies_to_stressors": [
+        "S09",
+        "S16",
+        "S17"
+      ],
+      "stack_fit_citations": [
+        "node service on kubernetes"
+      ],
+      "source_pattern": null,
+      "estimated_cost": "low"
+    },
+    {
+      "id": "R07",
+      "name": "Payment degraded mode",
+      "intent": "Allow entry with deferred capture when the gateway is down",
+      "minimal_change_description": "Authorize a hold; if PaymentGateway is down, allow entry and defer capture with a cap.",
+      "applies_to_stressors": [
+        "S14",
+        "S21"
+      ],
+      "stack_fit_citations": [
+        "stripe",
+        "stripe client"
+      ],
+      "source_pattern": null,
+      "estimated_cost": "med"
+    },
+    {
+      "id": "R08",
+      "name": "Read-only availability cache",
+      "intent": "Serve occupancy from a cache when the DB is degraded",
+      "minimal_change_description": "Cache occupancy snapshots; serve stale-but-safe availability under DB stress.",
+      "applies_to_stressors": [
+        "S02",
+        "S18",
+        "S20"
+      ],
+      "stack_fit_citations": [
+        "postgres 15"
+      ],
+      "source_pattern": null,
+      "estimated_cost": "low"
+    },
+    {
+      "id": "R09",
+      "name": "Manual override with review",
+      "intent": "Gate a risky rate migration behind a reviewed runbook",
+      "minimal_change_description": "Require a second-operator review for prod rate migrations.",
+      "applies_to_stressors": [
+        "S07"
+      ],
+      "stack_fit_citations": [
+        "node service on kubernetes"
+      ],
+      "source_pattern": "manual_override_with_review",
+      "estimated_cost": "low"
+    },
+    {
+      "id": "R10",
+      "name": "Queue bulkhead",
+      "intent": "Isolate the occupancy fan-out from unlock traffic",
+      "minimal_change_description": "Separate queues + bulkhead so sensor fan-out cannot starve unlock.",
+      "applies_to_stressors": [
+        "S18",
+        "S16",
+        "S26"
+      ],
+      "stack_fit_citations": [
+        "node service on kubernetes"
+      ],
+      "source_pattern": null,
+      "estimated_cost": "med"
+    }
+  ],
+  "contagion": {
+    "couplings": [
+      {
+        "from_residue": "R01",
+        "to_residue": "R02",
+        "weight": 0.6,
+        "reason": "Both change the gate unlock path"
+      },
+      {
+        "from_residue": "R03",
+        "to_residue": "R07",
+        "weight": 0.7,
+        "reason": "Shared billing capture semantics"
+      },
+      {
+        "from_residue": "R03",
+        "to_residue": "R04",
+        "weight": 0.5,
+        "reason": "Both touch BillingService charge flow"
+      },
+      {
+        "from_residue": "R05",
+        "to_residue": "R02",
+        "weight": 0.4,
+        "reason": "Override actions must be audited"
+      },
+      {
+        "from_residue": "R06",
+        "to_residue": "R10",
+        "weight": 0.5,
+        "reason": "Both bound ParkingService load"
+      },
+      {
+        "from_residue": "R08",
+        "to_residue": "R10",
+        "weight": 0.4,
+        "reason": "Both depend on the DB/queue under stress"
+      },
+      {
+        "from_residue": "R04",
+        "to_residue": "R05",
+        "weight": 0.5,
+        "reason": "Metered receipts feed the audit log"
+      }
+    ],
+    "incidence": [
+      [
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    ],
+    "stressor_coverage": {
+      "S01": 1.0,
+      "S02": 1.0,
+      "S03": 0.0,
+      "S04": 1.0,
+      "S05": 0.0,
+      "S06": 0.0,
+      "S07": 1.0,
+      "S08": 1.0,
+      "S09": 1.0,
+      "S10": 0.0,
+      "S11": 0.0,
+      "S12": 1.0,
+      "S13": 1.0,
+      "S14": 1.0,
+      "S15": 0.0,
+      "S16": 1.0,
+      "S17": 1.0,
+      "S18": 1.0,
+      "S19": 1.0,
+      "S20": 1.0,
+      "S21": 1.0,
+      "S22": 0.0,
+      "S23": 1.0,
+      "S24": 1.0,
+      "S25": 1.0,
+      "S26": 1.0
+    },
+    "residue_load": {
+      "R01": 3,
+      "R02": 3,
+      "R03": 3,
+      "R04": 2,
+      "R05": 3,
+      "R06": 3,
+      "R07": 2,
+      "R08": 3,
+      "R09": 1,
+      "R10": 3
+    },
+    "coupling_matrix": [
+      [
+        0.0,
+        0.6,
+        0.15,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.15,
+        0.0,
+        0.0
+      ],
+      [
+        0.6,
+        0.0,
+        0.0,
+        0.0,
+        0.4,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.15,
+        0.0,
+        0.0,
+        0.5,
+        0.0,
+        0.0,
+        0.7,
+        0.15,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.5,
+        0.0,
+        0.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.4,
+        0.0,
+        0.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.5
+      ],
+      [
+        0.0,
+        0.0,
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.15,
+        0.0,
+        0.15,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.4
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.5,
+        0.0,
+        0.4,
+        0.0,
+        0.0
+      ]
+    ],
+    "brittleness_rank": [
+      {
+        "residue_id": "R03",
+        "score": 0.5,
+        "why": "load=3, top coupling -> R07 (0.7)"
+      },
+      {
+        "residue_id": "R02",
+        "score": 0.3333,
+        "why": "load=3, top coupling -> R01 (0.6)"
+      },
+      {
+        "residue_id": "R01",
+        "score": 0.3,
+        "why": "load=3, top coupling -> R02 (0.6)"
+      },
+      {
+        "residue_id": "R05",
+        "score": 0.3,
+        "why": "load=3, top coupling -> R04 (0.5)"
+      },
+      {
+        "residue_id": "R10",
+        "score": 0.3,
+        "why": "load=3, top coupling -> R06 (0.5)"
+      }
+    ],
+    "hotspots": [
+      {
+        "residue_id": "R01",
+        "reason": "load*brittleness=1.5 >= 75th percentile (0.9)"
+      },
+      {
+        "residue_id": "R02",
+        "reason": "load*brittleness=1.0 >= 75th percentile (0.9)"
+      },
+      {
+        "residue_id": "R03",
+        "reason": "load*brittleness=0.9 >= 75th percentile (0.9)"
+      },
+      {
+        "residue_id": "R05",
+        "reason": "load*brittleness=0.9 >= 75th percentile (0.9)"
+      }
+    ],
+    "orphan_residues": []
+  },
+  "history": [
+    {
+      "timestamp": "2026-01-01T00:00:00Z",
+      "mode": "analyze",
+      "note": "synthetic fixture"
+    }
+  ],
+  "open_questions": [],
+  "criticality": {
+    "N": 8,
+    "K": 2.475,
+    "P": 0.45,
+    "regime": "edge",
+    "deltas": []
+  }
+}

@@ -22,6 +22,16 @@ export function pyRound(value: number, ndigits = 0): number {
   return rounded / factor;
 }
 
+/**
+ * Format a number the way Python's str(round(x, n)) does — a whole-number float
+ * keeps its trailing ".0" (str(1.0) === "1.0"), unlike JS String(1) === "1".
+ * Used when a rounded float is interpolated into a human-readable string that the
+ * parity tests compare against the skill's Python output.
+ */
+export function pyFloatStr(x: number): string {
+  return Number.isInteger(x) ? x.toFixed(1) : String(x);
+}
+
 /** Linear-interpolated percentile matching contagion_matrix.percentile(). */
 export function percentile(values: number[], pct: number): number {
   if (values.length === 0) return 0;
