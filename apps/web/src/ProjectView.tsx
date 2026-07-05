@@ -301,6 +301,26 @@ function critColor(crit: number, max: number): string {
   return `rgba(${r},${g},${b},${0.25 + t * 0.45})`;
 }
 
+/** Compact C0x → name key, shared by the Matrix and Graph tabs so the ids are legible. */
+function ComponentLegend({ components, hot }: { components: Component[]; hot?: Set<string> }) {
+  if (components.length === 0) return null;
+  return (
+    <div className="row" style={{ gap: 6, marginBottom: 10, alignItems: "flex-start" }}>
+      <span className="cat" style={{ alignSelf: "center" }}>components:</span>
+      {components.map((c) => (
+        <span
+          key={c.id}
+          className="badge"
+          title={`${c.kind}${c.responsibilities?.length ? ` — ${c.responsibilities.join("; ")}` : ""}`}
+        >
+          <b style={{ color: "var(--accent)" }}>{c.id}</b> {c.name}
+          {hot?.has(c.id) && <span title="hotspot"> 🔴</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MatrixGrid({
   components,
   stressors,
@@ -338,13 +358,14 @@ function MatrixGrid({
         Rows = stressors, columns = components. Click a cell to set which components a stressor hits. Toggle the ● to
         enable/disable a stressor in the current scenario — metrics above recompute live.
       </div>
+      <ComponentLegend components={components} hot={hot} />
       <div className="matrix-wrap">
         <table className="matrix">
           <thead>
             <tr>
               <th className="rowhdr">stressor \ component</th>
               {components.map((c) => (
-                <th key={c.id} title={c.name} style={{ background: hot.has(c.id) ? "var(--hot)" : undefined }}>
+                <th key={c.id} title={`${c.id} = ${c.name} (${c.kind})`} style={{ background: hot.has(c.id) ? "var(--hot)" : undefined }}>
                   {c.id}
                 </th>
               ))}
@@ -418,6 +439,7 @@ function ArchitectureGraph({
 
   return (
     <div className="panel">
+      <ComponentLegend components={components} hot={hot} />
       <svg className="svg-graph" viewBox={`0 0 ${W} ${H}`}>
         {edges.map((e, i) => {
           const a = pos.get(e.from);
@@ -434,7 +456,7 @@ function ArchitectureGraph({
             <g key={c.id}>
               <circle cx={p.x} cy={p.y} r={r} fill={fill} stroke="#4a9eff" strokeWidth={1.5} />
               <text x={p.x} y={p.y - r - 6} textAnchor="middle" fill="#dbe3ec" fontSize={11}>
-                {c.name.slice(0, 20)}
+                <tspan fill="#4a9eff" fontWeight={700}>{c.id}</tspan> {c.name.slice(0, 18)}
               </text>
               <text x={p.x} y={p.y + 4} textAnchor="middle" fill="#04121f" fontSize={11} fontWeight={700}>
                 {cv}
