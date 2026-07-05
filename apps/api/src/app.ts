@@ -51,6 +51,21 @@ import { verifyJwt } from "./auth.js";
 
 export async function buildApp(cfg: Config) {
   const app = Fastify({ logger: true });
+
+  // Treat an empty application/json body as {} — several POSTs (seed, AI actions)
+  // are sent with the JSON content-type but no body, which the default parser
+  // rejects with a 400. (MCP requests always carry a body and parse normally.)
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    const text = (body as string).trim();
+    if (text === "") return done(null, {});
+    try {
+      done(null, JSON.parse(text));
+    } catch (err) {
+      (err as { statusCode?: number }).statusCode = 400;
+      done(err as Error, undefined);
+    }
+  });
+
   await app.register(cors, { origin: cfg.corsOrigins, credentials: true });
   await app.register(websocket);
 

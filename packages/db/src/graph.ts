@@ -172,13 +172,24 @@ export async function exportState(projectId: string, projectName: string, now: s
 export async function importState(projectId: string, state: ResidualityState): Promise<void> {
   await setUserStackFacts(projectId, state.user_stack_facts ?? []);
 
-  const arch = await createArchitecture({
-    projectId,
-    kind: "naive",
-    name: "Naive architecture",
-    summary: state.naive_architecture.summary,
-    businessContext: state.naive_architecture.business_context,
-  });
+  // Reuse the project's existing naive architecture (created at project setup)
+  // rather than creating a second one — two same-kind architectures make
+  // getPrimaryArchitectureId ambiguous.
+  const existingArchId = await getPrimaryArchitectureId(projectId);
+  let archId: string;
+  if (existingArchId) {
+    archId = existingArchId;
+  } else {
+    const created = await createArchitecture({
+      projectId,
+      kind: "naive",
+      name: "Naive architecture",
+      summary: state.naive_architecture.summary,
+      businessContext: state.naive_architecture.business_context,
+    });
+    archId = created.id;
+  }
+  const arch = { id: archId };
 
   for (const c of state.naive_architecture.components) {
     await addComponent({
