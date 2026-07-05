@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.vite
+**/*.tsbuildinfo
+.git
+neo4j-data
+neo4j-logs
+*.log

@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.0",
+  "project": "ev-charging",
+  "created_at": "2026-05-03T08:00:00Z",
+  "updated_at": "2026-05-03T08:00:00Z",
+  "git_sha": null,
+  "mode": "analyze",
+  "focus": [],
+  "naive_architecture": {
+    "summary": "Driver opens app, scans QR on charger, app authenticates with cloud, cloud unlocks charger, billing per kWh, payment via Stripe.",
+    "business_context": "Pan-European EV charging network. Win the moment the driver pulls in. Time-to-unlock is the metric.",
+    "components": [
+      {"id": "C01", "name": "Driver", "kind": "human", "responsibilities": ["arrives at charger"], "tech_assumptions": []},
+      {"id": "C02", "name": "EV vehicle", "kind": "device", "responsibilities": ["accepts cable"], "tech_assumptions": []},
+      {"id": "C03", "name": "Mobile app", "kind": "client", "responsibilities": ["scan QR", "authenticate", "request unlock"], "tech_assumptions": ["iOS Swift", "Android Kotlin"]},
+      {"id": "C04", "name": "QR sticker", "kind": "edge", "responsibilities": ["physical identifier"], "tech_assumptions": ["weather-exposed"]},
+      {"id": "C05", "name": "Charger device", "kind": "device", "responsibilities": ["unlock cable", "meter kWh", "telemetry"], "tech_assumptions": ["MQTT over TLS"]},
+      {"id": "C06", "name": "Charger Service", "kind": "service", "responsibilities": ["unlock orchestration"], "tech_assumptions": ["Kotlin Spring"]},
+      {"id": "C07", "name": "Identity Service", "kind": "service", "responsibilities": ["authenticate users"], "tech_assumptions": ["Kotlin Spring"]},
+      {"id": "C08", "name": "Billing Service", "kind": "service", "responsibilities": ["per-kWh billing"], "tech_assumptions": ["Kotlin Spring"]},
+      {"id": "C09", "name": "Sessions DB", "kind": "datastore", "responsibilities": ["session writes"], "tech_assumptions": ["Postgres 14"]},
+      {"id": "C10", "name": "Payment Processor", "kind": "external", "responsibilities": ["charge cards"], "tech_assumptions": ["Stripe"]},
+      {"id": "C11", "name": "Cellular network at site", "kind": "external", "responsibilities": ["device connectivity"], "tech_assumptions": []}
+    ],
+    "edges": [
+      {"from": "C01", "to": "C03", "kind": "human", "notes": "uses app"},
+      {"from": "C03", "to": "C07", "kind": "sync", "notes": "authenticate"},
+      {"from": "C03", "to": "C06", "kind": "sync", "notes": "request unlock"},
+      {"from": "C06", "to": "C05", "kind": "sync", "notes": "unlock command via cellular"},
+      {"from": "C05", "to": "C02", "kind": "device", "notes": "cable engages"},
+      {"from": "C05", "to": "C06", "kind": "async", "notes": "telemetry / kWh ticks"},
+      {"from": "C06", "to": "C09", "kind": "data", "notes": "session writes"},
+      {"from": "C08", "to": "C10", "kind": "sync", "notes": "charge card"}
+    ],
+    "assumptions": [
+      "Driver has a smartphone with our app installed",
+      "Cellular coverage at every site",
+      "QR sticker is intact and scannable",
+      "Payment processor is up",
+      "No regulator changes the billing dimension",
+      "Our cloud is reachable from the charger",
+      "The cable physically engages and disengages on command"
+    ]
+  },
+  "user_stack_facts": [
+    "Postgres 14",
+    "Kotlin services on JVM, Spring Boot",
+    "AWS eu-west-1 and eu-central-1",
+    "Stripe for card processing",
+    "MQTT over TLS for charger telemetry",
+    "iOS + Android clients native",
+    "No message broker today",
+    "No multi-region active-active"
+  ],
+  "stressors": [
+    {"id": "S01", "name": "Cloud region outage during commuter peak", "category": "tech", "novelty": 2, "description": "Region we run in goes down at 18:00; chargers can't get unlock commands; queues form; drivers leave.", "horizon": "now", "source": "generated"},
+    {"id": "S02", "name": "QR sticker peels off after 9 months in rain", "category": "environmental", "novelty": 4, "description": "Driver can't initiate session; abandons; loss of revenue + reputation.", "horizon": "1y", "source": "generated"},
+    {"id": "S03", "name": "Vandalism: meat shoved into charge port", "category": "environmental", "novelty": 5, "description": "Charger thinks cable is engaged, won't release, blocked from service for hours.", "horizon": "now", "source": "generated"},
+    {"id": "S04", "name": "Regulator mandates per-minute billing", "category": "regulatory", "novelty": 4, "description": "Our entire billing stack is per-kWh; switch must happen in 90 days.", "horizon": "1y", "source": "generated"},
+    {"id": "S05", "name": "Driver tampers with cellular antenna for free charge", "category": "adversarial", "novelty": 5, "description": "Charger loses telemetry mid-session; we can't bill; loss + investigation.", "horizon": "now", "source": "generated"},
+    {"id": "S06", "name": "Stripe outage 90 minutes during Friday peak", "category": "supply-chain", "novelty": 3, "description": "We can't authorise cards; drivers stranded.", "horizon": "now", "source": "generated"},
+    {"id": "S07", "name": "Cellular outage at a single site", "category": "tech", "novelty": 2, "description": "Charger isolated; can't unlock new sessions; in-progress sessions lose telemetry.", "horizon": "now", "source": "generated"},
+    {"id": "S08", "name": "Driver has a feature phone (no app)", "category": "human", "novelty": 3, "description": "Cannot authenticate; can't charge; reputation in older demographic.", "horizon": "now", "source": "generated"},
+    {"id": "S09", "name": "Charger firmware bricks after bad OTA", "category": "tech", "novelty": 4, "description": "Single charger out of service; rollout halted; investigation overhead.", "horizon": "now", "source": "generated"},
+    {"id": "S10", "name": "New tariff causes support volume spike", "category": "human", "novelty": 3, "description": "Support team handles 5x disputes; chargebacks.", "horizon": "1y", "source": "generated"},
+    {"id": "S11", "name": "Credential stuffing campaign", "category": "adversarial", "novelty": 3, "description": "Free charges via compromised accounts; reputational damage.", "horizon": "now", "source": "generated"},
+    {"id": "S12", "name": "Holiday weekend, 4x normal session count", "category": "scale", "novelty": 2, "description": "Queues form; some chargers throttle; long-tail latency on unlock.", "horizon": "now", "source": "generated"},
+    {"id": "S13", "name": "Coordinated booking-bot attack", "category": "adversarial", "novelty": 4, "description": "Reserves chargers without using them; real drivers can't use chargers.", "horizon": "1y", "source": "generated"},
+    {"id": "S14", "name": "GDPR deletion mid-charging-session", "category": "regulatory", "novelty": 4, "description": "Data we need to bill is being legally erased mid-session.", "horizon": "now", "source": "generated"},
+    {"id": "S15", "name": "Lightning strike on cellular tower", "category": "environmental", "novelty": 3, "description": "All chargers at site offline; isolated for hours.", "horizon": "now", "source": "generated"},
+    {"id": "S16", "name": "-30C in Norway: lithium refuses charge", "category": "environmental", "novelty": 4, "description": "Charger reports session failed though OK; user charged for nothing.", "horizon": "5y", "source": "generated"},
+    {"id": "S17", "name": "Sessions DB deadlock under telemetry burst", "category": "tech", "novelty": 3, "description": "Sessions can't close; bills can't post; user surface stale.", "horizon": "now", "source": "generated"},
+    {"id": "S18", "name": "One fleet customer = 60% of sessions", "category": "scale", "novelty": 3, "description": "One tenant noisy; risk to all others.", "horizon": "now", "source": "generated"},
+    {"id": "S19", "name": "ICE driver parks in EV charging bay", "category": "adversarial", "novelty": 4, "description": "Charger physically blocked; we have no signal; revenue loss.", "horizon": "now", "source": "generated"},
+    {"id": "S20", "name": "Competitor drops to half price overnight", "category": "market", "novelty": 3, "description": "Sessions migrate; we need a response.", "horizon": "1y", "source": "generated"},
+    {"id": "S21", "name": "Charger hardware vendor bankruptcy", "category": "supply-chain", "novelty": 4, "description": "No more spare parts; firmware support frozen.", "horizon": "5y", "source": "generated"},
+    {"id": "S22", "name": "DST transition produces ambiguous timestamps", "category": "time", "novelty": 4, "description": "Two sessions appear to overlap; billing dispute.", "horizon": "now", "source": "generated"},
+    {"id": "S23", "name": "Stripe webhook retry flood", "category": "tech", "novelty": 3, "description": "Duplicate charge posts; we double-charge users.", "horizon": "now", "source": "generated"},
+    {"id": "S24", "name": "Long-tail driver: payment method expired", "category": "scale", "novelty": 2, "description": "Session starts then fails to bill; no reconciliation.", "horizon": "now", "source": "generated"},
+    {"id": "S25", "name": "On-call deploys staging certs to prod", "category": "human", "novelty": 3, "description": "Charger TLS handshake fails fleetwide.", "horizon": "now", "source": "generated"},
+    {"id": "S26", "name": "Mandate to publish real-time availability API", "category": "regulatory", "novelty": 3, "description": "We don't have an availability API; mandate has a deadline.", "horizon": "1y", "source": "generated"},
+    {"id": "S27", "name": "Driver disputes charge claiming app hacked", "category": "adversarial", "novelty": 3, "description": "Can't prove session attribution; refund forced; no investigation trail.", "horizon": "now", "source": "generated"},
+    {"id": "S28", "name": "Search query at scale blows DB budget", "category": "scale", "novelty": 3, "description": "App degrades; users can't find chargers nearby.", "horizon": "1y", "source": "generated"},
+    {"id": "S29", "name": "Card auto-renewal Tuesday morning", "category": "time", "novelty": 3, "description": "Stripe API rate-limits; sessions can't authorise.", "horizon": "now", "source": "generated"},
+    {"id": "S30", "name": "Mobile OS update breaks QR scanner", "category": "supply-chain", "novelty": 3, "description": "App can't scan; users can't initiate sessions.", "horizon": "now", "source": "generated"},
+    {"id": "S31", "name": "Snow covers screen and QR", "category": "environmental", "novelty": 4, "description": "Driver can't see anything; can't initiate; abandons.", "horizon": "now", "source": "generated"},
+    {"id": "S32", "name": "Visually impaired driver, QR-scan UX impossible", "category": "human", "novelty": 4, "description": "Cannot use product; ADA risk.", "horizon": "now", "source": "generated"}
+  ],
+  "attractors_residues": [
+    {
+      "stressor_id": "S01",
+      "attractor": {"name": "Drivers stranded", "description": "Drivers cannot unlock chargers; defection to competitor; loss + reputation.", "why_system_drifts_here": "Single-region; chargers depend on cloud unlock commands."},
+      "residue": {"id": "R01", "name": "Local autonomy", "intent": "Charger holds last-known auth + per-charger budget for N hours", "minimal_change_description": "Cache identity tokens and a per-charger session budget locally; serve unlock from cache when cloud unreachable.", "applies_to_stressors": ["S01", "S07", "S15"], "stack_fit_citations": ["MQTT over TLS for charger telemetry"], "source_pattern": "local_autonomy", "estimated_cost": "high"}
+    },
+    {
+      "stressor_id": "S02",
+      "attractor": {"name": "Driver can't initiate", "description": "QR is the only identity channel; without it the user abandons.", "why_system_drifts_here": "Single identity channel via QR."},
+      "residue": {"id": "R02", "name": "Camera/ALPR fallback identity", "intent": "Secondary identity channel via camera + plate recognition", "minimal_change_description": "Add camera-based ALPR as a secondary identity; manual reconciliation step when used.", "applies_to_stressors": ["S02", "S08", "S30", "S31", "S32"], "stack_fit_citations": ["iOS + Android clients native"], "source_pattern": "alpr_camera_fallback_identity", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S03",
+      "attractor": {"name": "Port locked indefinitely", "description": "Foreign object in port; firmware thinks cable is engaged; no automatic release.", "why_system_drifts_here": "Single unlock path."},
+      "residue": {"id": "R03", "name": "Unlock redundancy", "intent": "Secondary release path with attendant override + audit", "minimal_change_description": "Add a NFC + attendant remote override for cable release with mandatory audit log.", "applies_to_stressors": ["S03"], "stack_fit_citations": ["MQTT over TLS for charger telemetry"], "source_pattern": "unlock_redundancy", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S04",
+      "attractor": {"name": "Billing model rebuild", "description": "Per-kWh assumption baked into billing; per-minute requires new billing model.", "why_system_drifts_here": "Single billing dimension."},
+      "residue": {"id": "R04", "name": "Per-minute billing path", "intent": "Record both per-kWh and per-minute on every session; switch dimension via config", "minimal_change_description": "Capture both dimensions on every session; parameterise the billed dimension; add reconciliation for transitions.", "applies_to_stressors": ["S04"], "stack_fit_citations": ["Postgres 14"], "source_pattern": "per_minute_billing_path", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S05",
+      "attractor": {"name": "Telemetry gap mid-session", "description": "Antenna tampering breaks telemetry; we cannot bill the lost interval.", "why_system_drifts_here": "Telemetry is the single source of truth for billing."},
+      "residue": {"id": "R05", "name": "Charge-session observability", "intent": "Periodic signed receipts at session events; flag gaps", "minimal_change_description": "Emit signed structured domain events at every state transition; flag any gap > N seconds for review.", "applies_to_stressors": ["S05", "S22", "S27"], "stack_fit_citations": ["Postgres 14", "MQTT over TLS for charger telemetry"], "source_pattern": "charge_session_observability", "estimated_cost": "low"}
+    },
+    {
+      "stressor_id": "S06",
+      "attractor": {"name": "Cannot authorise cards", "description": "Stripe outage means no card auth; new sessions can't start; revenue loss.", "why_system_drifts_here": "Synchronous dependency on Stripe at session start."},
+      "residue": {"id": "R06", "name": "Outbox + async reconciliation", "intent": "Persist intent locally; settle when Stripe returns", "minimal_change_description": "Outbox table in Postgres; worker drains with idempotent retries; reconciliation job catches drift.", "applies_to_stressors": ["S06", "S23", "S29"], "stack_fit_citations": ["Postgres 14", "Stripe for card processing"], "source_pattern": "outbox_with_async_reconciliation", "estimated_cost": "low"}
+    },
+    {
+      "stressor_id": "S09",
+      "attractor": {"name": "Charger out of service", "description": "Bad OTA bricks one charger; rollout pause; debugging time.", "why_system_drifts_here": "Big-bang firmware rollout."},
+      "residue": {"id": "R07", "name": "Progressive rollout", "intent": "Deploy firmware to 1% then 10% then 100% with auto-abort", "minimal_change_description": "Stage firmware rollouts in cohorts with health checks; auto-abort on error rate.", "applies_to_stressors": ["S09", "S25"], "stack_fit_citations": ["MQTT over TLS for charger telemetry"], "source_pattern": "progressive_rollout", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S11",
+      "attractor": {"name": "Compromised accounts", "description": "Stuffing campaign matches some accounts; free charges + reputation.", "why_system_drifts_here": "No anomaly signal feed."},
+      "residue": {"id": "R08", "name": "Per-tenant quota + adversarial signals", "intent": "Throttle on anomalies; per-tenant rate limits", "minimal_change_description": "Add per-account session quotas; consume signals from auth provider; throttle on anomaly.", "applies_to_stressors": ["S11", "S13", "S18"], "stack_fit_citations": ["Kotlin services on JVM, Spring Boot"], "source_pattern": "per_tenant_quota", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S12",
+      "attractor": {"name": "Unlock queue grows", "description": "Tail latency blows SLO; user-visible spinner.", "why_system_drifts_here": "No backpressure."},
+      "residue": {"id": "R09", "name": "Backpressure on unlock", "intent": "Bounded queue with user-visible wait", "minimal_change_description": "Bounded unlock queue; producer-side rejection; surface 'wait 30s' UX.", "applies_to_stressors": ["S12", "S29"], "stack_fit_citations": ["Kotlin services on JVM, Spring Boot"], "source_pattern": "backpressure", "estimated_cost": "low"}
+    },
+    {
+      "stressor_id": "S13",
+      "attractor": {"name": "Real drivers locked out", "description": "Booking bots reserve chargers; real drivers can't use them.", "why_system_drifts_here": "No abuse detection on reservations."},
+      "residue": {"id": "R10", "name": "Idempotent reservation w/ abuse signals", "intent": "Cancel reservations on no-show; detect bot patterns", "minimal_change_description": "Reservation TTL with auto-cancel; behavioural signals fed into R08 quotas.", "applies_to_stressors": ["S13"], "stack_fit_citations": ["Postgres 14"], "source_pattern": "idempotent_replay", "estimated_cost": "low"}
+    },
+    {
+      "stressor_id": "S14",
+      "attractor": {"name": "Data deleted while needed", "description": "GDPR forces deletion of data still required for billing.", "why_system_drifts_here": "No legal hold mechanism."},
+      "residue": {"id": "R11", "name": "Audit immutability + event sourcing", "intent": "Sealed session events; deletion deferred to post-settlement window", "minimal_change_description": "Append-only audit table for session events; deletion policy honours legal hold up to settlement.", "applies_to_stressors": ["S14", "S27"], "stack_fit_citations": ["Postgres 14"], "source_pattern": "event_sourcing_audit_trail", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S19",
+      "attractor": {"name": "Bay blocked invisibly", "description": "ICE car parks in EV bay; charger thinks 'available' but is physically blocked.", "why_system_drifts_here": "No physical occupancy sensing."},
+      "residue": {"id": "R12", "name": "Camera occupancy sensing", "intent": "Camera-based occupancy detection feeds availability API", "minimal_change_description": "Add camera-based occupancy at each charger; expose via availability surface.", "applies_to_stressors": ["S19"], "stack_fit_citations": ["MQTT over TLS for charger telemetry"], "source_pattern": "alpr_camera_fallback_identity", "estimated_cost": "med"}
+    },
+    {
+      "stressor_id": "S23",
+      "attractor": {"name": "Duplicate charges posted", "description": "Stripe webhook retries cause double-charging.", "why_system_drifts_here": "Webhook handler not idempotent."},
+      "residue": {"id": "R14", "name": "Idempotent webhook processing", "intent": "Process each Stripe event id at most once", "minimal_change_description": "Persist (event_id, result) on first processing; return cached result on retries.", "applies_to_stressors": ["S23"], "stack_fit_citations": ["Postgres 14", "Stripe for card processing"], "source_pattern": "idempotent_replay", "estimated_cost": "low"}
+    },
+    {
+      "stressor_id": "S26",
+      "attractor": {"name": "Regulatory deadline", "description": "Mandate to publish real-time availability with deadline.", "why_system_drifts_here": "No public availability API."},
+      "residue": {"id": "R15", "name": "Public availability API", "intent": "Read-only API derived from session/availability state", "minimal_change_description": "Expose a public read API derived from internal session and occupancy state.", "applies_to_stressors": ["S26"], "stack_fit_citations": ["Kotlin services on JVM, Spring Boot"], "source_pattern": null, "estimated_cost": "med"}
+    }
+  ],
+  "residue_stack": [],
+  "history": [
+    {"timestamp": "2026-05-03T08:00:00Z", "mode": "analyze", "note": "fixture init", "changed_sections": []}
+  ],
+  "open_questions": []
+}

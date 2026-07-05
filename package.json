@@ -1,0 +1,24 @@
+{
+  "name": "residuality-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, Neo4j-backed collaborative tool for Residuality Theory: model architectures, toggle stressors, and see resilience risk in real time.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r --if-present lint",
+    "dev:api": "pnpm --filter @residuality/api dev",
+    "dev:web": "pnpm --filter @residuality/web dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

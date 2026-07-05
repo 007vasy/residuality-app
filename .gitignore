@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+neo4j-data/
+neo4j-logs/
+.vite/
+*.tsbuildinfo
