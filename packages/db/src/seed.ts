@@ -2,9 +2,9 @@ import {
   collectInputResidues,
   dedupeResidues,
   type Component,
-  type ResidualityState,
+  type AnalysisState,
   type StressorCategory,
-} from "@residuality/core";
+} from "@stressforge/core";
 import { evCharging } from "./__fixtures__/ev_charging.js";
 import { importState } from "./graph.js";
 import { setAffects } from "./stressors.js";
@@ -64,11 +64,11 @@ export async function seedEvCharging(projectId: string): Promise<{
   residues: number;
   affects: number;
 }> {
-  const fixture = evCharging as unknown as ResidualityState;
+  const fixture = evCharging as unknown as AnalysisState;
 
   // Build the residue stack the skill would have produced at dedupe time.
   const stack = dedupeResidues(collectInputResidues(fixture as any));
-  const state: ResidualityState = { ...fixture, residue_stack: stack };
+  const state: AnalysisState = { ...fixture, residue_stack: stack };
 
   await importState(projectId, state);
 

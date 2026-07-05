@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { ROLE_RANK, type Role } from "@residuality/core";
-import { getMemberRole } from "@residuality/db";
+import { ROLE_RANK, type Role } from "@stressforge/core";
+import { getMemberRole } from "@stressforge/db";
 
 export interface AuthedUser {
   userId: string;

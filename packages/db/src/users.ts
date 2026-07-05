@@ -1,4 +1,4 @@
-import type { User } from "@residuality/core";
+import type { User } from "@stressforge/core";
 import { read, write } from "./driver.js";
 import { uuid } from "./ids.js";
 

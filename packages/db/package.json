@@ -1,5 +1,5 @@
 {
-  "name": "@residuality/db",
+  "name": "@stressforge/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@residuality/core": "workspace:*",
+    "@stressforge/core": "workspace:*",
     "neo4j-driver": "^5.27.0"
   },
   "devDependencies": {

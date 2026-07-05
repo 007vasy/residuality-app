@@ -4,7 +4,7 @@
  * business-first stressors/attractors, diverse categories + black swans, and minimal
  * residues that cite real stack facts.
  */
-import { STRESSOR_CATEGORY_META } from "@residuality/core";
+import { STRESSOR_CATEGORY_META } from "@stressforge/core";
 
 export interface ArchInput {
   summary: string;
@@ -34,7 +34,7 @@ export function stressorGenerationPrompt(args: {
   count: number;
 }): string {
   const { arch, userStackFacts, existingStressorNames, focus, count } = args;
-  return `You are applying Barry O'Reilly's Residuality Theory. Generate a DIVERSE set of stressors for the architecture below. A stressor is any external event that perturbs the system — technical, regulatory, market, human, adversarial, environmental, supply-chain, scale, or time-related. The point is diversity and unexpectedness, described from the BUSINESS side (readable by a non-engineer), never pure tech jargon.
+  return `You are running a resilience stress-simulation of a software architecture (public complexity-science techniques: stressor simulation, incidence matrices, coupling analysis). Generate a DIVERSE set of stressors for the architecture below. A stressor is any external event that perturbs the system — technical, regulatory, market, human, adversarial, environmental, supply-chain, scale, or time-related. The point is diversity and unexpectedness, described from the BUSINESS side (readable by a non-engineer), never pure tech jargon.
 
 ARCHITECTURE:
 ${renderArchitecture(arch)}
@@ -62,7 +62,7 @@ export function attractorResiduePrompt(args: {
   stressor: { id: string; name: string; category: string; description: string };
 }): string {
   const { arch, userStackFacts, stressor } = args;
-  return `You are applying Residuality Theory. For the single stressor below, first derive the ATTRACTOR (the business state the system drifts into if you do NOTHING — described in business language, not tech), then the smallest RESIDUE (the minimal architectural change that lets the business survive that attractor).
+  return `You are running a resilience stress-simulation. For the single stressor below, first derive the ATTRACTOR (the business state the system drifts into if you do NOTHING — described in business language, not tech), then the smallest RESILIENT ELEMENT / residue (the minimal architectural change that lets the business survive that attractor).
 
 ARCHITECTURE:
 ${renderArchitecture(arch)}
@@ -86,7 +86,7 @@ Return ONLY a JSON object, no prose, with EXACTLY:
 
 export function architectureEditPrompt(args: { arch: ArchInput; instruction: string }): string {
   const { arch, instruction } = args;
-  return `You are editing a software architecture for a Residuality Theory analysis. Apply the user's instruction and return the components/edges to ADD (new C-ids will be assigned by the system, so reference new components by name in edges). Keep changes minimal and consistent with the existing design.
+  return `You are editing a software architecture for a resilience stress-simulation. Apply the user's instruction and return the components/edges to ADD (new C-ids will be assigned by the system, so reference new components by name in edges). Keep changes minimal and consistent with the existing design.
 
 CURRENT ARCHITECTURE:
 ${renderArchitecture(arch)}

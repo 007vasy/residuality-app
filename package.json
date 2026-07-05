@@ -1,5 +1,5 @@
 {
-  "name": "residuality-app",
+  "name": "stressforge",
   "version": "0.1.0",
   "private": true,
   "description": "Open-source, Neo4j-backed collaborative tool for Residuality Theory: model architectures, toggle stressors, and see resilience risk in real time.",
@@ -14,8 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "pnpm -r --if-present lint",
-    "dev:api": "pnpm --filter @residuality/api dev",
-    "dev:web": "pnpm --filter @residuality/web dev"
+    "dev:api": "pnpm --filter @stressforge/api dev",
+    "dev:web": "pnpm --filter @stressforge/web dev"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

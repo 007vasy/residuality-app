@@ -1,11 +1,8 @@
 /**
- * Zod port of the residuality skill's `assets/state_schema.json` (schema v1.0).
- *
- * This is the single validation contract shared by the REST API, the MCP server,
- * and state.json import/export. Keeping it faithful to the skill's schema means an
- * analysis produced by the CLI skill can be imported here and vice-versa.
- *
- * Source of truth: /home/ben/Projects/skills/residuality/assets/state_schema.json
+ * Zod schema for the portable analysis JSON (schema v1.0) — the single validation
+ * contract shared by the REST API, the MCP server, and import/export. It models the
+ * public method's entities: architecture, stressors, attractors, residues (resilient
+ * elements), the contagion/coupling matrix, and the criticality (NKP) roll-up.
  */
 import { z } from "zod";
 
@@ -194,8 +191,7 @@ export type AttractorResidue = z.infer<typeof attractorResidueSchema>;
 export type Coupling = z.infer<typeof couplingSchema>;
 export type Contagion = z.infer<typeof contagionSchema>;
 export type Criticality = z.infer<typeof criticalitySchema>;
-export type ResiduaityState = z.infer<typeof stateSchema>;
-export type ResidualityState = z.infer<typeof stateSchema>;
+export type AnalysisState = z.infer<typeof stateSchema>;
 export type ComponentKind = (typeof COMPONENT_KINDS)[number];
 export type EdgeKind = (typeof EDGE_KINDS)[number];
 export type StressorCategory = (typeof STRESSOR_CATEGORIES)[number];

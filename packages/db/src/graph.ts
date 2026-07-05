@@ -4,10 +4,10 @@ import {
   computeIncidenceMetrics,
   type Coupling,
   type IncidenceMetrics,
-  type ResidualityState,
+  type AnalysisState,
   type Residue,
   type Stressor as StressorState,
-} from "@residuality/core";
+} from "@stressforge/core";
 import { getComponents, getEdges, listArchitectures, createArchitecture, addComponent, setEdge } from "./architecture.js";
 import { getUserStackFacts, setUserStackFacts } from "./projects.js";
 import { addResidue, listAttractors, listCouplings, listResidues, addAttractor, setCoupling } from "./residues.js";
@@ -65,7 +65,7 @@ export async function computeProjectMetrics(
  * Build a skill-compatible state.json from the project graph, running the core
  * compute engine to fill contagion + criticality. Round-trips with the CLI skill.
  */
-export async function exportState(projectId: string, projectName: string, now: string): Promise<ResidualityState> {
+export async function exportState(projectId: string, projectName: string, now: string): Promise<AnalysisState> {
   const architectureId = await getPrimaryArchitectureId(projectId);
   const [components, edges, stressors, residues, attractors, couplings, userStackFacts] = await Promise.all([
     architectureId ? getComponents(architectureId) : Promise.resolve([]),
@@ -123,7 +123,7 @@ export async function exportState(projectId: string, projectName: string, now: s
     }));
   });
 
-  const state: ResidualityState = {
+  const state: AnalysisState = {
     schema_version: "1.0",
     project: projectName,
     created_at: now,
@@ -145,7 +145,7 @@ export async function exportState(projectId: string, projectName: string, now: s
     stressors: stressorState,
     attractors_residues: attractorsResidues,
     residue_stack: residueStack,
-    history: [{ timestamp: now, mode: "analyze", note: "exported from residuality-app" }],
+    history: [{ timestamp: now, mode: "analyze", note: "exported from StressForge" }],
     open_questions: [],
   };
 
@@ -164,12 +164,12 @@ export async function exportState(projectId: string, projectName: string, now: s
 }
 
 /**
- * Import a skill-produced state.json into an existing (empty) project. Creates the into an existing (empty) project. Creates the
+ * Import a portable analysis JSON into an existing (empty) project. Creates the
  * naive architecture, components, edges, stressors, residues, attractors, and
  * couplings. AFFECTS (stressor x component) edges are not present in state.json,
  * so the interactive matrix starts empty and is populated in-app or via the LLM.
  */
-export async function importState(projectId: string, state: ResidualityState): Promise<void> {
+export async function importState(projectId: string, state: AnalysisState): Promise<void> {
   await setUserStackFacts(projectId, state.user_stack_facts ?? []);
 
   // Reuse the project's existing naive architecture (created at project setup)

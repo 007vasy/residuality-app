@@ -1,4 +1,4 @@
-import type { Project, ProjectMember, Role } from "@residuality/core";
+import type { Project, ProjectMember, Role } from "@stressforge/core";
 import { read, write } from "./driver.js";
 import { uuid } from "./ids.js";
 

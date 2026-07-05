@@ -1,4 +1,4 @@
-import { closeDriver, migrate, verifyConnectivity } from "@residuality/db";
+import { closeDriver, migrate, verifyConnectivity } from "@stressforge/db";
 import { loadConfig } from "./config.js";
 import { buildApp } from "./app.js";
 

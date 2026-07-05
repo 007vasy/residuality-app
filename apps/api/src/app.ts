@@ -1,8 +1,8 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
-import { SUPPORTED_MODELS } from "@residuality/llm";
-import { handleMcpRequest } from "@residuality/mcp";
+import { SUPPORTED_MODELS } from "@stressforge/llm";
+import { handleMcpRequest } from "@stressforge/mcp";
 import {
   addMemberByEmail,
   createApiToken,
@@ -37,13 +37,13 @@ import {
   updateScenario,
   upsertProviderKey,
   createArchitecture,
-} from "@residuality/db";
-import { stateSchema } from "@residuality/core";
+} from "@stressforge/db";
+import { stateSchema } from "@stressforge/core";
 import { z, ZodError } from "zod";
 import type { Config } from "./config.js";
 import { makeAuthenticate, requireRole, signJwt } from "./auth.js";
 import { encryptSecret, generateApiToken, hashPassword, hashToken, verifyPassword } from "./crypto.js";
-import { ApiResidualityService } from "./service.js";
+import { ApiProjectService } from "./service.js";
 import { llmClientForUser } from "./llm-resolver.js";
 import { startSse } from "./sse.js";
 import { broadcastChange, joinRoom, leaveRoom } from "./ws.js";
@@ -88,7 +88,7 @@ export async function buildApp(cfg: Config) {
   async function serviceFor(projectId: string) {
     const project = await getProject(projectId);
     if (!project) return null;
-    return new ApiResidualityService(projectId, project.name, cfg, (resources) =>
+    return new ApiProjectService(projectId, project.name, cfg, (resources) =>
       broadcastChange(projectId, resources),
     );
   }
@@ -279,7 +279,7 @@ export async function buildApp(cfg: Config) {
       .object({ from: z.string(), to: z.string(), kind: z.enum(["sync", "async", "data", "human", "device"]) })
       .parse(req.body);
     // setEdge is on db; use service architecture path indirectly via addComponent? Use db directly:
-    const { setEdge } = await import("@residuality/db");
+    const { setEdge } = await import("@stressforge/db");
     await setEdge(id, body);
     broadcastChange(id, ["architecture", "metrics"]);
     return { ok: true };
@@ -483,7 +483,7 @@ export async function buildApp(cfg: Config) {
   async function aiEndpoint(
     req: FastifyRequest,
     reply: FastifyReply,
-    run: (svc: ApiResidualityService) => Promise<unknown>,
+    run: (svc: ApiProjectService) => Promise<unknown>,
   ) {
     const { id } = req.params as { id: string };
     const role = await requireRole(req, reply, id, "editor");
@@ -492,7 +492,7 @@ export async function buildApp(cfg: Config) {
     const userClient = await llmClientForUser(req.userId!, cfg);
     const project = await getProject(id);
     if (!project) return reply.code(404).send({ error: "not found" });
-    const svc = new ApiResidualityService(
+    const svc = new ApiProjectService(
       id,
       project.name,
       cfg,
@@ -567,6 +567,6 @@ export async function buildApp(cfg: Config) {
 }
 
 async function requireMembership(projectId: string, userId: string): Promise<boolean> {
-  const { getMemberRole } = await import("@residuality/db");
+  const { getMemberRole } = await import("@stressforge/db");
   return (await getMemberRole(projectId, userId)) != null;
 }

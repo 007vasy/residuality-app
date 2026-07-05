@@ -1,4 +1,4 @@
-import type { ArchitectureKind, ArchitectureNode, ComponentEdge, ComponentNode } from "@residuality/core";
+import type { ArchitectureKind, ArchitectureNode, ComponentEdge, ComponentNode } from "@stressforge/core";
 import { read, withWriteTx, write } from "./driver.js";
 import { nextSeqId, uuid } from "./ids.js";
 

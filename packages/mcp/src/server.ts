@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import type { ResidualityService } from "./service.js";
+import type { ProjectService } from "./service.js";
 
 function json(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -12,10 +12,10 @@ function err(message: string) {
   return { isError: true, content: [{ type: "text" as const, text: `Error: ${message}` }] };
 }
 
-/** Build an McpServer exposing the residuality toolset over one project's service. */
-export function createMcpServer(service: ResidualityService): McpServer {
+/** Build an McpServer exposing the StressForge toolset over one project's service. */
+export function createMcpServer(service: ProjectService): McpServer {
   const server = new McpServer({
-    name: "residuality",
+    name: "stressforge",
     version: "0.1.0",
   });
 
@@ -190,8 +190,8 @@ export function createMcpServer(service: ResidualityService): McpServer {
   server.registerTool(
     "export_state",
     {
-      title: "Export state.json",
-      description: "Export the project as a skill-compatible residuality state.json.",
+      title: "Export analysis JSON",
+      description: "Export the project as a portable analysis JSON (architecture, stressors, residues, contagion, criticality).",
       inputSchema: {},
     },
     async () => json(await service.exportState()),
@@ -205,7 +205,7 @@ export function createMcpServer(service: ResidualityService): McpServer {
  * request). Wire this behind the API's per-project token auth at POST /mcp.
  */
 export async function handleMcpRequest(
-  service: ResidualityService,
+  service: ProjectService,
   req: IncomingMessage,
   res: ServerResponse,
   parsedBody: unknown,

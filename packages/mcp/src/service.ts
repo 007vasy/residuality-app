@@ -8,10 +8,10 @@ import type {
   AttractorNode,
   ComponentEdge,
   ComponentNode,
-  ResidualityState,
+  AnalysisState,
   ResidueNode,
   StressorNode,
-} from "@residuality/core";
+} from "@stressforge/core";
 
 export interface ArchitectureView {
   architectureId: string | null;
@@ -34,7 +34,7 @@ export interface MetricsView {
   residualIndex: number | null;
 }
 
-export interface ResidualityService {
+export interface ProjectService {
   readonly projectId: string;
   readonly projectName: string;
 
@@ -70,5 +70,5 @@ export interface ResidualityService {
   deriveResidue(stressorId: string): Promise<{ attractor: AttractorNode; residue: ResidueNode }>;
 
   getMetrics(enabledStressorIds?: string[]): Promise<MetricsView>;
-  exportState(): Promise<ResidualityState>;
+  exportState(): Promise<AnalysisState>;
 }

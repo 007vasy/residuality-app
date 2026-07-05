@@ -1,4 +1,4 @@
-import type { AttractorNode, ResidueCoupling, ResidueNode } from "@residuality/core";
+import type { AttractorNode, ResidueCoupling, ResidueNode } from "@stressforge/core";
 import { read, withWriteTx, write } from "./driver.js";
 import { nextSeqId } from "./ids.js";
 

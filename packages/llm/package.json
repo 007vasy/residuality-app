@@ -1,5 +1,5 @@
 {
-  "name": "@residuality/llm",
+  "name": "@stressforge/llm",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
-    "@residuality/core": "workspace:*"
+    "@stressforge/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

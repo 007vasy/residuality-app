@@ -1,4 +1,4 @@
-const TOKEN_KEY = "residuality_token";
+const TOKEN_KEY = "stressforge_token";
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);

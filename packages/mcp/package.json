@@ -1,5 +1,5 @@
 {
-  "name": "@residuality/mcp",
+  "name": "@stressforge/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.13.0",
-    "@residuality/core": "workspace:*",
+    "@stressforge/core": "workspace:*",
     "zod": "^3.24.1"
   },
   "devDependencies": {

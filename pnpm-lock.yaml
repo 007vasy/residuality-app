@@ -23,16 +23,16 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.1
         version: 11.2.0
-      '@residuality/core':
+      '@stressforge/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@residuality/db':
+      '@stressforge/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@residuality/llm':
+      '@stressforge/llm':
         specifier: workspace:*
         version: link:../../packages/llm
-      '@residuality/mcp':
+      '@stressforge/mcp':
         specifier: workspace:*
         version: link:../../packages/mcp
       fastify:
@@ -98,7 +98,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@residuality/core':
+      '@stressforge/core':
         specifier: workspace:*
         version: link:../core
       neo4j-driver:
@@ -120,7 +120,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.68.0
         version: 0.68.0(zod@3.25.76)
-      '@residuality/core':
+      '@stressforge/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -139,7 +139,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.13.0
         version: 1.29.0(zod@3.25.76)
-      '@residuality/core':
+      '@stressforge/core':
         specifier: workspace:*
         version: link:../core
       zod:

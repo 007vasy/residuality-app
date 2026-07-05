@@ -121,10 +121,10 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
     }
   }
 
-  async function generateStressors() {
-    setBusy("Generating stressors with your Claude key…");
+  async function generateStressors(count: number, label: string) {
+    setBusy(label);
     try {
-      await aiStream(`/projects/${projectId}/ai/generate-stressors`, { count: 30, focus: [] }, (event, data) => {
+      await aiStream(`/projects/${projectId}/ai/generate-stressors`, { count, focus: [] }, (event, data) => {
         if (event === "error") throw new Error(data.message);
       });
       await loadStressors();
@@ -159,8 +159,19 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
         <button onClick={seed} disabled={!!busy}>
           Seed EV demo
         </button>
-        <button onClick={generateStressors} disabled={!!busy}>
+        <button
+          onClick={() => generateStressors(30, "Generating a diverse stressor set with your key…")}
+          disabled={!!busy}
+          title="AI-generate ~30 stressors spanning all categories, from your BYOK key"
+        >
           ✨ Generate stressors (AI)
+        </button>
+        <button
+          onClick={() => generateStressors(10, "Simulating 10 wild, high-novelty stressors…")}
+          disabled={!!busy}
+          title="AI-generate 10 deliberately extreme 'black swan' stressors to probe the unexpected"
+        >
+          🎲 Suggest 10 wild stressors
         </button>
         <a href={`/api/projects/${projectId}/export`} onClick={(e) => downloadExport(e, projectId)}>
           <button>Export state.json</button>
@@ -221,14 +232,33 @@ function downloadExport(e: React.MouseEvent, projectId: string) {
     });
 }
 
+/** A single 0–100 roll-up of coverage, regime, and coupling. Original heuristic. */
+function resilienceScore(m: Metrics): number {
+  const regimeFactor = m.regime.startsWith("edge")
+    ? 1
+    : m.regime.startsWith("frozen")
+      ? 0.5
+      : m.regime.startsWith("chaotic")
+        ? 0.3
+        : 0.5; // indeterminate
+  const score = 100 * (0.6 * m.coverage + 0.4 * regimeFactor);
+  return Math.round(Math.max(0, Math.min(100, score)));
+}
+
 function MetricsBar({ metrics, stressorCount }: { metrics: Metrics; stressorCount: number }) {
   const regimeClass = metrics.regime.startsWith("frozen")
     ? "regime-frozen"
     : metrics.regime.startsWith("chaotic")
       ? "regime-chaotic"
       : "regime-edge";
+  const score = resilienceScore(metrics);
+  const scoreColor = score >= 70 ? "var(--edge)" : score >= 45 ? "#e0b341" : "var(--chaotic)";
   return (
     <div className="panel row" style={{ justifyContent: "space-around" }}>
+      <div className="metric" title="Composite 0–100 roll-up of residue coverage, regime, and coupling">
+        <div className="val" style={{ color: scoreColor }}>{score}</div>
+        <div className="lbl">Resilience Score</div>
+      </div>
       <div className="metric">
         <div className="val">{metrics.N}</div>
         <div className="lbl">Components (N)</div>
@@ -565,7 +595,7 @@ function Settings({ projectId }: { projectId: string }) {
           Drive this project from Claude Code / Claude Desktop. Create a token, then add the server:
         </p>
         <pre style={{ background: "var(--panel2)", padding: 10, borderRadius: 6, overflow: "auto" }}>
-{`claude mcp add residuality --transport http \\
+{`claude mcp add stressforge --transport http \\
   ${location.origin}/mcp \\
   --header "Authorization: Bearer <token>"`}
         </pre>

@@ -1,4 +1,4 @@
-import type { AffectsEdge, StressorNode } from "@residuality/core";
+import type { AffectsEdge, StressorNode } from "@stressforge/core";
 import { read, withWriteTx, write } from "./driver.js";
 import { nextSeqId } from "./ids.js";
 

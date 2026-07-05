@@ -6,6 +6,7 @@ export function App() {
   const [authed, setAuthed] = useState(!!getToken());
   const [me, setMe] = useState<{ email: string; displayName: string } | null>(null);
   const [openProject, setOpenProject] = useState<string | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     if (!authed) return;
@@ -27,11 +28,12 @@ export function App() {
           style={{ cursor: "pointer" }}
           onClick={() => setOpenProject(null)}
         >
-          🜁 Residuality
+          🔨 StressForge
         </h1>
-        <span className="muted">architecture stress lab</span>
+        <span className="muted">resilient architecture &amp; risk simulator</span>
         <div className="spacer" />
         <span className="muted">{me?.email}</span>
+        <button onClick={() => setShowAbout(true)}>About</button>
         <button
           onClick={() => {
             setToken(null);
@@ -41,12 +43,49 @@ export function App() {
           Sign out
         </button>
       </div>
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {openProject ? (
         <ProjectView projectId={openProject} onBack={() => setOpenProject(null)} />
       ) : (
         <Projects onOpen={setOpenProject} />
       )}
     </>
+  );
+}
+
+function AboutModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 100,
+      }}
+    >
+      <div className="panel" style={{ maxWidth: 520, margin: 16 }} onClick={(e) => e.stopPropagation()}>
+        <h2>🔨 StressForge</h2>
+        <p>A resilient-architecture &amp; risk simulator. Model your system as components, simulate a diverse set of
+          stressors, and watch the incidence matrix, coupling (K), and resilience score respond in real time.</p>
+        <p className="muted" style={{ fontSize: 12, lineHeight: 1.6 }}>
+          StressForge is an original tool. Its method is inspired by publicly available ideas from complexity science
+          and software-architecture research — incidence/adjacency matrices, Kauffman-style coupling and criticality
+          (NKP), attractors, and stressor simulation. See the open 2020 paper:{" "}
+          <a href="https://www.sciencedirect.com/science/article/pii/S1877050920305585" target="_blank" rel="noreferrer">
+            “An Introduction to Residuality Theory”, Procedia CS 170 (2020)
+          </a>. StressForge does not reproduce any material from paid books or workshops.
+        </p>
+        <div className="row" style={{ justifyContent: "flex-end" }}>
+          <button className="primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

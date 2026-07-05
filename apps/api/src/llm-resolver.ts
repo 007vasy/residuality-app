@@ -1,5 +1,5 @@
-import { createLlmClient, type LlmClient } from "@residuality/llm";
-import { getProviderKey, listMembers } from "@residuality/db";
+import { createLlmClient, type LlmClient } from "@stressforge/llm";
+import { getProviderKey, listMembers } from "@stressforge/db";
 import { decryptSecret } from "./crypto.js";
 import type { Config } from "./config.js";
 

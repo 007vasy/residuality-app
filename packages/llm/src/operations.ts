@@ -2,7 +2,7 @@
  * High-level residuality LLM operations. Each returns validated, app-shaped data
  * that the API/MCP layers persist to Neo4j. Provider-agnostic — takes any LlmClient.
  */
-import { STRESSOR_CATEGORIES } from "@residuality/core";
+import { STRESSOR_CATEGORIES } from "@stressforge/core";
 import { extractJson, type LlmClient } from "./client.js";
 import {
   architectureEditPrompt,

@@ -1,15 +1,15 @@
 import type {
   ArchitectureView,
   MetricsView,
-  ResidualityService,
-} from "@residuality/mcp";
+  ProjectService,
+} from "@stressforge/mcp";
 import type {
   AttractorNode,
   ComponentNode,
-  ResidualityState,
+  AnalysisState,
   ResidueNode,
   StressorNode,
-} from "@residuality/core";
+} from "@stressforge/core";
 import {
   addAttractor,
   addComponent as dbAddComponent,
@@ -28,17 +28,17 @@ import {
   setAffects as dbSetAffects,
   setEdge,
   updateStressor as dbUpdateStressor,
-} from "@residuality/db";
-import { deriveAttractorResidue, editArchitecture, generateStressors, type ArchInput, type LlmClient } from "@residuality/llm";
+} from "@stressforge/db";
+import { deriveAttractorResidue, editArchitecture, generateStressors, type ArchInput, type LlmClient } from "@stressforge/llm";
 import type { Config } from "./config.js";
 import { llmClientForProject } from "./llm-resolver.js";
 
 /**
- * Concrete ResidualityService backed by Neo4j + the project's BYOK key. Shared by
+ * Concrete ProjectService backed by Neo4j + the project's BYOK key. Shared by
  * the MCP server and the REST/SSE handlers so external agents and the web UI drive
  * the exact same operations. Every mutation broadcasts so collaborators see it live.
  */
-export class ApiResidualityService implements ResidualityService {
+export class ApiProjectService implements ProjectService {
   constructor(
     readonly projectId: string,
     readonly projectName: string,
@@ -269,7 +269,7 @@ export class ApiResidualityService implements ResidualityService {
     };
   }
 
-  exportState(): Promise<ResidualityState> {
+  exportState(): Promise<AnalysisState> {
     return dbExportState(this.projectId, this.projectName, new Date().toISOString());
   }
 }
