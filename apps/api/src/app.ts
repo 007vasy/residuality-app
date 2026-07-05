@@ -39,7 +39,7 @@ import {
   createArchitecture,
 } from "@residuality/db";
 import { stateSchema } from "@residuality/core";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import type { Config } from "./config.js";
 import { makeAuthenticate, requireRole, signJwt } from "./auth.js";
 import { encryptSecret, generateApiToken, hashPassword, hashToken, verifyPassword } from "./crypto.js";
@@ -68,6 +68,19 @@ export async function buildApp(cfg: Config) {
 
   await app.register(cors, { origin: cfg.corsOrigins, credentials: true });
   await app.register(websocket);
+
+  // Turn validation errors into clean 400s with a readable message instead of a
+  // 500 with a raw ZodError blob (which reads as "the app is broken").
+  app.setErrorHandler((error, req, reply) => {
+    if (error instanceof ZodError) {
+      const msg = error.issues.map((i) => `${i.path.join(".") || "field"}: ${i.message}`).join("; ");
+      return reply.code(400).send({ error: msg });
+    }
+    const e = error as { statusCode?: number; message?: string };
+    const status = e.statusCode ?? 500;
+    if (status >= 500) req.log.error(error as Error);
+    return reply.code(status).send({ error: e.message || "internal error" });
+  });
 
   const authenticate = makeAuthenticate(cfg.jwtSecret);
 
