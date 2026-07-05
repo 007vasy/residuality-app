@@ -11,7 +11,7 @@ import {
   type Stressor,
 } from "./api";
 
-type Tab = "matrix" | "graph" | "stressors" | "residues" | "settings";
+type Tab = "matrix" | "graph" | "stressors" | "residues" | "risk" | "settings";
 
 export function ProjectView({ projectId, onBack }: { projectId: string; onBack: () => void }) {
   const [tab, setTab] = useState<Tab>("matrix");
@@ -182,7 +182,7 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
       {metrics && <MetricsBar metrics={metrics} stressorCount={stressors.length} />}
 
       <div className="tabs">
-        {(["matrix", "graph", "stressors", "residues", "settings"] as Tab[]).map((t) => (
+        {(["matrix", "graph", "stressors", "residues", "risk", "settings"] as Tab[]).map((t) => (
           <div key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </div>
@@ -212,6 +212,9 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
         />
       )}
       {tab === "residues" && <ResidueList residues={residues} stressors={stressors} />}
+      {tab === "risk" && (
+        <RiskDashboard metrics={metrics} components={components} stressors={stressors} residues={residues} />
+      )}
       {tab === "settings" && <Settings projectId={projectId} />}
     </div>
   );
@@ -539,6 +542,241 @@ function ResidueList({ residues, stressors }: { residues: Residue[]; stressors: 
           </div>
         ))}
         {residues.length === 0 && <div className="muted">No residues yet. Derive them from stressors on the Stressors tab.</div>}
+      </div>
+    </div>
+  );
+}
+
+/** Regime → plain-language risk meaning for the verdict banner. */
+function regimeMeaning(regime: string): { label: string; cls: string; text: string } {
+  if (regime.startsWith("frozen"))
+    return {
+      label: "Frozen",
+      cls: "regime-frozen",
+      text: "Rigid — the system struggles to absorb novelty. A single unhandled event has an outsized effect. Add diverse resilient elements to climb toward the adaptive band.",
+    };
+  if (regime.startsWith("chaotic"))
+    return {
+      label: "Chaotic",
+      cls: "regime-chaotic",
+      text: "Over-coupled — small failures cascade widely and incidents have a large blast radius. Reduce coupling and add isolation between the components that fail together.",
+    };
+  if (regime.startsWith("edge"))
+    return {
+      label: "Edge of chaos",
+      cls: "regime-edge",
+      text: "Adaptive — perturbations are contained but learn-able from. This is the target band: high enough coupling to adapt, low enough to contain failures.",
+    };
+  return {
+    label: "Indeterminate",
+    cls: "",
+    text: "Not enough data for a meaningful verdict yet. Add more stressors and derive resilient elements, then re-check — a criticality reading on a thin model is misleading.",
+  };
+}
+
+/**
+ * Generic, widely-documented resilience patterns suggested by the current regime.
+ * These are general software-resilience practices, not authoritative prescriptions —
+ * and the regime thresholds behind them are this app's own tuning parameters.
+ */
+function recommendedActions(m: Metrics, topPair?: { a: string; b: string }): string[] {
+  if (m.regime.startsWith("frozen"))
+    return [
+      "Add a circuit breaker with a fallback cache on your most-loaded read path so one dependency can't freeze the whole flow.",
+      "Give a write-critical surface a read-only degraded mode so it stays partially available under stress.",
+      "Add a bulkhead where one tenant or downstream can starve the rest — contain, don't share, the failure.",
+    ];
+  if (m.regime.startsWith("chaotic"))
+    return [
+      topPair
+        ? `Decouple ${topPair.a} and ${topPair.b} (they fail together) — put a queue or circuit breaker between them.`
+        : "Decouple the most tightly-coupled components — put a queue or circuit breaker between them.",
+      "Add tenant / blast-radius isolation so one component's defect can't contaminate the others.",
+      "Add an immutable audit trail so cascading incidents stay investigable.",
+    ];
+  if (m.regime.startsWith("edge"))
+    return [
+      "You're in the target band — keep coverage high as the architecture grows.",
+      "Stress-test the edge: toggle on your wildest stressors and watch whether coupling (K) tips you toward chaotic.",
+    ];
+  return [
+    "Generate a diverse stressor set (all categories, including a few wild ones).",
+    "Derive a resilient element for each high-blast-radius stressor, then re-check the verdict.",
+  ];
+}
+
+function RiskDashboard({
+  metrics,
+  components,
+  stressors,
+  residues,
+}: {
+  metrics: Metrics | null;
+  components: Component[];
+  stressors: Stressor[];
+  residues: Residue[];
+}) {
+  const compName = useMemo(() => new Map(components.map((c) => [c.id, c.name])), [components]);
+  const covered = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of residues) for (const sid of r.appliesToStressors) s.add(sid);
+    return s;
+  }, [residues]);
+
+  if (!metrics || components.length === 0 || stressors.length === 0) {
+    return (
+      <div className="panel muted">
+        No risk to assess yet. Add components and stressors — or “Seed demo” — then this page shows your resilience
+        verdict, top risks, and recommended actions.
+      </div>
+    );
+  }
+
+  const crit = metrics.componentCriticality;
+  const maxCrit = Math.max(1, ...Object.values(crit));
+  const hot = new Set(metrics.hotComponents);
+  const score = resilienceScore(metrics);
+  const scoreColor = score >= 70 ? "var(--edge)" : score >= 45 ? "#e0b341" : "var(--chaotic)";
+  const verdict = regimeMeaning(metrics.regime);
+
+  const topComponents = [...components]
+    .map((c) => ({ c, v: crit[c.id] ?? 0 }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v)
+    .slice(0, 8);
+
+  const topStressors = [...stressors]
+    .map((s) => ({ s, v: metrics.stressorBlastRadius[s.id] ?? 0 }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v)
+    .slice(0, 8);
+
+  const gaps = stressors
+    .filter((s) => !covered.has(s.id))
+    .sort((a, b) => b.novelty - a.novelty);
+
+  const pairs = [...metrics.coupledPairs].sort((a, b) => b.sharedStressors - a.sharedStressors).slice(0, 8);
+  const topPair =
+    pairs[0] && { a: compName.get(pairs[0].a) ?? pairs[0].a, b: compName.get(pairs[0].b) ?? pairs[0].b };
+  const actions = recommendedActions(metrics, topPair);
+
+  return (
+    <div>
+      {/* 1. Verdict banner */}
+      <div className="panel">
+        <div className="row" style={{ alignItems: "center", gap: 20 }}>
+          <div className="metric">
+            <div className="val" style={{ color: scoreColor }}>{score}</div>
+            <div className="lbl">Resilience Score</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }} className={verdict.cls}>
+              {verdict.label}
+            </div>
+            <div className="muted">{verdict.text}</div>
+          </div>
+          <button onClick={() => window.print()} title="Open the browser print dialog to save a PDF">
+            🖨 Print risk report
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Executive summary tiles */}
+      <div className="panel row" style={{ justifyContent: "space-around" }}>
+        <div className="metric"><div className="val">{metrics.N}</div><div className="lbl">Components</div></div>
+        <div className="metric"><div className="val">{metrics.K.toFixed(2)}</div><div className="lbl">Coupling (K)</div></div>
+        <div className="metric"><div className="val">{Math.round(metrics.coverage * 100)}%</div><div className="lbl">Mitigation coverage</div></div>
+        <div className="metric"><div className="val">{metrics.residualIndex == null ? "—" : metrics.residualIndex.toFixed(2)}</div><div className="lbl">Resilient index</div></div>
+        <div className="metric"><div className="val">{metrics.hotComponents.length}</div><div className="lbl">Hotspots</div></div>
+        <div className="metric"><div className="val">{gaps.length}</div><div className="lbl">Unaddressed</div></div>
+      </div>
+
+      <div className="grid-cards">
+        {/* 3. Top critical components */}
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Most exposed components</h3>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Where enabled stressors converge. Higher = more ways to fail.</div>
+          <div className="list">
+            {topComponents.map(({ c, v }) => (
+              <div className="item row" key={c.id} style={{ background: critColor(v, maxCrit) }}>
+                <b>{c.name}</b>
+                <span className="cat">{c.kind}</span>
+                {hot.has(c.id) && <span className="badge err">hotspot</span>}
+                <div className="spacer" />
+                <span className="badge">{v} stressor(s)</span>
+              </div>
+            ))}
+            {topComponents.length === 0 && <div className="muted">No stressor hits mapped yet.</div>}
+          </div>
+        </div>
+
+        {/* 4. Highest blast-radius stressors */}
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Highest blast-radius stressors</h3>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>One event, many components — systemic risk.</div>
+          <div className="list">
+            {topStressors.map(({ s, v }) => (
+              <div className="item row" key={s.id}>
+                <span className="cat">{s.category}</span>
+                <b>{s.name}</b>
+                {!covered.has(s.id) && <span className="badge err">no mitigation</span>}
+                <div className="spacer" />
+                <span className="badge">hits {v}</span>
+              </div>
+            ))}
+            {topStressors.length === 0 && <div className="muted">No stressor hits mapped yet.</div>}
+          </div>
+        </div>
+
+        {/* 5. Coverage gaps */}
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Unaddressed risks</h3>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Stressors with no resilient element yet — highest novelty first.</div>
+          <div className="list">
+            {gaps.slice(0, 12).map((s) => (
+              <div className="item row" key={s.id}>
+                <span className="cat">{s.category}</span>
+                <b>{s.name}</b>
+                <div className="spacer" />
+                <span className="badge">novelty {s.novelty}</span>
+              </div>
+            ))}
+            {gaps.length === 0 && <div className="ok">Every stressor has at least one resilient element. ✓</div>}
+          </div>
+        </div>
+
+        {/* 6. Hidden coupling */}
+        <div className="panel">
+          <h3 style={{ marginTop: 0 }}>Hidden coupling</h3>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Component pairs that fail together through a shared stressor.</div>
+          <div className="list">
+            {pairs.map((p, i) => (
+              <div className="item row" key={i}>
+                <b>{compName.get(p.a) ?? p.a}</b>
+                <span className="muted">↔</span>
+                <b>{compName.get(p.b) ?? p.b}</b>
+                <div className="spacer" />
+                <span className="badge">{p.sharedStressors} shared</span>
+              </div>
+            ))}
+            {pairs.length === 0 && <div className="ok">No shared-stressor coupling detected. ✓</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Recommended actions */}
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>Recommended actions</h3>
+        <div className="list">
+          {actions.map((a, i) => (
+            <div className="item" key={i}>{a}</div>
+          ))}
+        </div>
+        <div className="muted" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
+          Suggestions are generic, widely-documented resilience patterns — not authoritative prescriptions. The
+          criticality bands (frozen / edge / chaotic) and the score are this app's own tuning parameters, provided for
+          orientation, not as a probabilistic risk grade.
+        </div>
       </div>
     </div>
   );
