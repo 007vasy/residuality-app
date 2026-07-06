@@ -271,7 +271,7 @@ export async function buildApp(cfg: Config) {
       .object({
         name: z.string().trim().min(1).max(200),
         description: z.string().max(2000).default(""),
-        domain: z.enum(["software", "company", "country", "planet"]).default("software"),
+        domain: z.enum(["software", "company", "city", "country", "planet"]).default("software"),
         isPublic: z.boolean().default(false),
       })
       .parse(req.body);

@@ -129,11 +129,12 @@ export interface Metrics {
   coverage: number;
   residualIndex: number | null;
 }
-export type Domain = "software" | "company" | "country" | "planet";
+export type Domain = "software" | "company" | "city" | "country" | "planet";
 
 export const DOMAIN_LABEL: Record<Domain, string> = {
   software: "Software architecture",
   company: "Company / enterprise",
+  city: "City / urban",
   country: "Country / national",
   planet: "Planetary / habitat",
 };

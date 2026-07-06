@@ -92,8 +92,14 @@ export function App() {
   );
 }
 
-const DOMAIN_ORDER: Domain[] = ["software", "company", "country", "planet"];
-const DOMAIN_ICON: Record<Domain, string> = { software: "🧩", company: "🏢", country: "🌍", planet: "🪐" };
+const DOMAIN_ORDER: Domain[] = ["software", "company", "city", "country", "planet"];
+const DOMAIN_ICON: Record<Domain, string> = {
+  software: "🧩",
+  company: "🏢",
+  city: "🏙️",
+  country: "🌍",
+  planet: "🪐",
+};
 
 function Home({
   authed,

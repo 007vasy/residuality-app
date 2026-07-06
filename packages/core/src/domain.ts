@@ -22,8 +22,8 @@ export type AttractorPolarity = "negative" | "acceptable" | "desirable";
  * incidence work for any system); the domain drives vocabulary/framing and which
  * seed library applies.
  */
-export type Domain = "software" | "company" | "country" | "planet";
-export const DOMAINS: Domain[] = ["software", "company", "country", "planet"];
+export type Domain = "software" | "company" | "city" | "country" | "planet";
+export const DOMAINS: Domain[] = ["software", "company", "city", "country", "planet"];
 
 export const DOMAIN_META: Record<Domain, { label: string; unit: string; blurb: string }> = {
   software: {
@@ -35,6 +35,11 @@ export const DOMAIN_META: Record<Domain, { label: string; unit: string; blurb: s
     label: "Company / enterprise risk",
     unit: "function",
     blurb: "Stress the operating model: value chain, functions, and dependencies.",
+  },
+  city: {
+    label: "City / urban risk",
+    unit: "system",
+    blurb: "Stress a city: housing, water, power, transport, economy, and governance.",
   },
   country: {
     label: "Country / national risk",
