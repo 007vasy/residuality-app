@@ -129,9 +129,29 @@ export interface Metrics {
   coverage: number;
   residualIndex: number | null;
 }
+export type Domain = "software" | "company" | "country" | "planet";
+
+export const DOMAIN_LABEL: Record<Domain, string> = {
+  software: "Software architecture",
+  company: "Company / enterprise",
+  country: "Country / national",
+  planet: "Planetary / habitat",
+};
+
 export interface Project {
   id: string;
   name: string;
   description: string;
+  domain: Domain;
+  isPublic: boolean;
   role?: string;
+}
+
+export interface LibraryStressor {
+  name: string;
+  category: string;
+  novelty: number;
+  description: string;
+  usedBy: number;
+  domains: string[];
 }

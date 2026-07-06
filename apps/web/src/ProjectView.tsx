@@ -13,7 +13,19 @@ import {
 
 type Tab = "matrix" | "graph" | "stressors" | "residues" | "risk" | "settings";
 
-export function ProjectView({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+export function ProjectView({
+  projectId,
+  readOnly = false,
+  onBack,
+  onSignInPrompt,
+}: {
+  projectId: string;
+  readOnly?: boolean;
+  onBack: () => void;
+  onSignInPrompt?: () => void;
+}) {
+  // Read-only (public / anonymous) views hit the unauthenticated /public/* routes.
+  const base = readOnly ? `/public/projects/${projectId}` : `/projects/${projectId}`;
   const [tab, setTab] = useState<Tab>("matrix");
   const [components, setComponents] = useState<Component[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -27,13 +39,13 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
   enabledRef.current = enabled;
 
   const loadArchitecture = useCallback(async () => {
-    const a = await api.get<{ components: Component[]; edges: Edge[] }>(`/projects/${projectId}/architecture`);
+    const a = await api.get<{ components: Component[]; edges: Edge[] }>(`${base}/architecture`);
     setComponents(a.components);
     setEdges(a.edges);
-  }, [projectId]);
+  }, [base]);
 
   const loadStressors = useCallback(async () => {
-    const s = await api.get<{ stressors: Stressor[]; affects: Affect[] }>(`/projects/${projectId}/stressors`);
+    const s = await api.get<{ stressors: Stressor[]; affects: Affect[] }>(`${base}/stressors`);
     setStressors(s.stressors);
     setAffects(s.affects);
     setEnabled((prev) => {
@@ -47,19 +59,19 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
       }
       return changed || prev.size === 0 ? new Set(s.stressors.map((x) => x.id)) : prev;
     });
-  }, [projectId]);
+  }, [base]);
 
   const loadResidues = useCallback(async () => {
-    const r = await api.get<{ residues: Residue[] }>(`/projects/${projectId}/residues`);
+    const r = await api.get<{ residues: Residue[] }>(`${base}/residues`);
     setResidues(r.residues);
-  }, [projectId]);
+  }, [base]);
 
   const loadMetrics = useCallback(async () => {
     const en = [...enabledRef.current];
     const q = en.length ? `?enabled=${en.join(",")}` : "";
-    const m = await api.get<{ metrics: Metrics }>(`/projects/${projectId}/metrics${q}`);
+    const m = await api.get<{ metrics: Metrics }>(`${base}/metrics${q}`);
     setMetrics(m.metrics);
-  }, [projectId]);
+  }, [base]);
 
   const reloadAll = useCallback(async () => {
     await Promise.all([loadArchitecture(), loadStressors(), loadResidues()]);
@@ -75,8 +87,9 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
     if (stressors.length) loadMetrics();
   }, [enabled, stressors.length, loadMetrics]);
 
-  // Live collaboration: refetch on broadcast.
+  // Live collaboration: refetch on broadcast. (Skipped in read-only/public view.)
   useEffect(() => {
+    if (readOnly) return;
     const token = getToken();
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ws?projectId=${projectId}&token=${token}`);
@@ -94,7 +107,7 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
       }
     };
     return () => ws.close();
-  }, [projectId, loadArchitecture, loadStressors, loadResidues, loadMetrics]);
+  }, [projectId, readOnly, loadArchitecture, loadStressors, loadResidues, loadMetrics]);
 
   function toggleStressorEnabled(id: string) {
     setEnabled((prev) => {
@@ -106,6 +119,7 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
   }
 
   async function toggleAffect(stressorId: string, componentId: string, on: boolean) {
+    if (readOnly) return;
     await api.put(`/projects/${projectId}/affects`, { stressorId, componentId, on });
     await loadStressors();
     await loadMetrics();
@@ -151,38 +165,58 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
     }
   }
 
+  const tabs: Tab[] = readOnly
+    ? ["matrix", "graph", "stressors", "residues", "risk"]
+    : ["matrix", "graph", "stressors", "residues", "risk", "settings"];
+
   return (
     <div className="container">
       <div className="row" style={{ marginBottom: 12 }}>
-        <button onClick={onBack}>← Projects</button>
+        <button onClick={onBack}>← Gallery</button>
         <div className="spacer" />
-        <button onClick={seed} disabled={!!busy}>
-          Seed EV demo
-        </button>
-        <button
-          onClick={() => generateStressors(30, "Generating a diverse stressor set with your key…")}
-          disabled={!!busy}
-          title="AI-generate ~30 stressors spanning all categories, from your BYOK key"
-        >
-          ✨ Generate stressors (AI)
-        </button>
-        <button
-          onClick={() => generateStressors(10, "Simulating 10 wild, high-novelty stressors…")}
-          disabled={!!busy}
-          title="AI-generate 10 deliberately extreme 'black swan' stressors to probe the unexpected"
-        >
-          🎲 Suggest 10 wild stressors
-        </button>
-        <a href={`/api/projects/${projectId}/export`} onClick={(e) => downloadExport(e, projectId)}>
-          <button>Export state.json</button>
-        </a>
+        {readOnly ? (
+          <>
+            <span className="badge">👁 public read-only</span>
+            {onSignInPrompt && (
+              <button className="primary" onClick={onSignInPrompt} title="Sign in to create and edit your own analyses">
+                Sign in to edit
+              </button>
+            )}
+            <a href={`/api${base}/export`} onClick={(e) => downloadExport(e, base)}>
+              <button>Export JSON</button>
+            </a>
+          </>
+        ) : (
+          <>
+            <button onClick={seed} disabled={!!busy}>
+              Seed EV demo
+            </button>
+            <button
+              onClick={() => generateStressors(30, "Generating a diverse stressor set with your key…")}
+              disabled={!!busy}
+              title="AI-generate ~30 stressors spanning all categories, from your BYOK key"
+            >
+              ✨ Generate stressors (AI)
+            </button>
+            <button
+              onClick={() => generateStressors(10, "Simulating 10 wild, high-novelty stressors…")}
+              disabled={!!busy}
+              title="AI-generate 10 deliberately extreme 'black swan' stressors to probe the unexpected"
+            >
+              🎲 Suggest 10 wild stressors
+            </button>
+            <a href={`/api/projects/${projectId}/export`} onClick={(e) => downloadExport(e, `/projects/${projectId}`)}>
+              <button>Export state.json</button>
+            </a>
+          </>
+        )}
       </div>
       {busy && <div className="panel muted">{busy}</div>}
 
       {metrics && <MetricsBar metrics={metrics} stressorCount={stressors.length} />}
 
       <div className="tabs">
-        {(["matrix", "graph", "stressors", "residues", "risk", "settings"] as Tab[]).map((t) => (
+        {tabs.map((t) => (
           <div key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </div>
@@ -196,6 +230,7 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
           affects={affects}
           enabled={enabled}
           metrics={metrics}
+          readOnly={readOnly}
           onToggleStressor={toggleStressorEnabled}
           onToggleAffect={toggleAffect}
         />
@@ -209,21 +244,23 @@ export function ProjectView({ projectId, onBack }: { projectId: string; onBack: 
           onDerive={deriveResidue}
           onReload={loadStressors}
           busy={!!busy}
+          readOnly={readOnly}
         />
       )}
       {tab === "residues" && <ResidueList residues={residues} stressors={stressors} />}
       {tab === "risk" && (
         <RiskDashboard metrics={metrics} components={components} stressors={stressors} residues={residues} />
       )}
-      {tab === "settings" && <Settings projectId={projectId} />}
+      {tab === "settings" && !readOnly && <Settings projectId={projectId} />}
     </div>
   );
 }
 
-function downloadExport(e: React.MouseEvent, projectId: string) {
+function downloadExport(e: React.MouseEvent, base: string) {
   e.preventDefault();
   const token = getToken();
-  fetch(`/api/projects/${projectId}/export`, { headers: { authorization: `Bearer ${token}` } })
+  const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
+  fetch(`/api${base}/export`, { headers })
     .then((r) => r.blob())
     .then((b) => {
       const url = URL.createObjectURL(b);
@@ -327,6 +364,7 @@ function MatrixGrid({
   affects,
   enabled,
   metrics,
+  readOnly,
   onToggleStressor,
   onToggleAffect,
 }: {
@@ -335,6 +373,7 @@ function MatrixGrid({
   affects: Affect[];
   enabled: Set<string>;
   metrics: Metrics | null;
+  readOnly?: boolean;
   onToggleStressor: (id: string) => void;
   onToggleAffect: (s: string, c: string, on: boolean) => void;
 }) {
@@ -355,8 +394,9 @@ function MatrixGrid({
   return (
     <div className="panel">
       <div className="muted" style={{ marginBottom: 8 }}>
-        Rows = stressors, columns = components. Click a cell to set which components a stressor hits. Toggle the ● to
-        enable/disable a stressor in the current scenario — metrics above recompute live.
+        Rows = stressors, columns = components.{" "}
+        {readOnly ? "" : "Click a cell to set which components a stressor hits. "}
+        Toggle the ● to enable/disable a stressor in the current scenario — metrics above recompute live.
       </div>
       <ComponentLegend components={components} hot={hot} />
       <div className="matrix-wrap">
@@ -479,6 +519,7 @@ function StressorBoard({
   onDerive,
   onReload,
   busy,
+  readOnly,
 }: {
   projectId: string;
   stressors: Stressor[];
@@ -486,6 +527,7 @@ function StressorBoard({
   onDerive: (id: string) => void;
   onReload: () => void;
   busy: boolean;
+  readOnly?: boolean;
 }) {
   const coveredStressors = useMemo(() => {
     const s = new Set<string>();
@@ -523,10 +565,14 @@ function StressorBoard({
                   <span className="badge">{s.horizon}</span>
                   {coveredStressors.has(s.id) && <span className="badge ok">has residue</span>}
                   <div className="spacer" />
-                  <button onClick={() => onDerive(s.id)} disabled={busy}>
-                    ✨ Derive residue
-                  </button>
-                  <button onClick={() => del(s.id)}>✕</button>
+                  {!readOnly && (
+                    <>
+                      <button onClick={() => onDerive(s.id)} disabled={busy}>
+                        ✨ Derive residue
+                      </button>
+                      <button onClick={() => del(s.id)}>✕</button>
+                    </>
+                  )}
                 </div>
                 <div className="muted" style={{ marginTop: 4 }}>
                   {s.description}
