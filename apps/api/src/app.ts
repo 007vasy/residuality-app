@@ -109,7 +109,11 @@ export async function buildApp(cfg: Config) {
   // ---- Auth ----
   app.post("/api/auth/register", async (req, reply) => {
     const body = z
-      .object({ email: z.string().email(), password: z.string().min(8), displayName: z.string().min(1) })
+      .object({
+        email: z.string().trim().email(),
+        password: z.string().min(8).max(200),
+        displayName: z.string().trim().min(1).max(80),
+      })
       .parse(req.body);
     if (await findUserByEmail(body.email)) return reply.code(409).send({ error: "email already registered" });
     const user = await createUser({
@@ -228,7 +232,7 @@ export async function buildApp(cfg: Config) {
     const svc = await publicService(id, reply);
     if (!svc) return;
     const q = req.query as { enabled?: string };
-    const enabled = q.enabled ? q.enabled.split(",").filter(Boolean) : undefined;
+    const enabled = q.enabled === undefined ? undefined : q.enabled.split(",").filter(Boolean);
     return { metrics: await svc.getMetrics(enabled) };
   });
 
@@ -265,8 +269,8 @@ export async function buildApp(cfg: Config) {
   app.post("/api/projects", { preHandler: authenticate }, async (req) => {
     const body = z
       .object({
-        name: z.string().min(1),
-        description: z.string().default(""),
+        name: z.string().trim().min(1).max(200),
+        description: z.string().max(2000).default(""),
         domain: z.enum(["software", "company", "country", "planet"]).default("software"),
         isPublic: z.boolean().default(false),
       })
@@ -359,10 +363,10 @@ export async function buildApp(cfg: Config) {
     if (!id) return;
     const body = z
       .object({
-        name: z.string().min(1),
+        name: z.string().trim().min(1).max(200),
         kind: z.enum(["service", "datastore", "queue", "client", "external", "human", "device", "edge"]),
-        responsibilities: z.array(z.string()).optional(),
-        techAssumptions: z.array(z.string()).optional(),
+        responsibilities: z.array(z.string().max(500)).max(50).optional(),
+        techAssumptions: z.array(z.string().max(500)).max(50).optional(),
       })
       .parse(req.body);
     const svc = await serviceFor(id);
@@ -445,15 +449,15 @@ export async function buildApp(cfg: Config) {
     if (!id) return;
     const body = z
       .object({
-        name: z.string().min(1),
+        name: z.string().trim().min(1).max(300),
         category: z.enum([
           "regulatory", "market", "tech", "human", "adversarial",
           "environmental", "supply-chain", "scale", "time",
         ]),
         novelty: z.number().int().min(1).max(5),
-        description: z.string().default(""),
+        description: z.string().max(2000).default(""),
         horizon: z.enum(["now", "1y", "5y"]).optional(),
-        affects: z.array(z.string()).optional(),
+        affects: z.array(z.string()).max(500).optional(),
       })
       .parse(req.body);
     const svc = await serviceFor(id);
@@ -555,7 +559,7 @@ export async function buildApp(cfg: Config) {
     const id = await guard(req, reply, "viewer");
     if (!id) return;
     const q = req.query as { enabled?: string };
-    const enabled = q.enabled ? q.enabled.split(",").filter(Boolean) : undefined;
+    const enabled = q.enabled === undefined ? undefined : q.enabled.split(",").filter(Boolean);
     const svc = await serviceFor(id);
     return { metrics: await svc!.getMetrics(enabled) };
   });

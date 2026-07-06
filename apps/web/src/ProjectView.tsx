@@ -68,8 +68,9 @@ export function ProjectView({
 
   const loadMetrics = useCallback(async () => {
     const en = [...enabledRef.current];
-    const q = en.length ? `?enabled=${en.join(",")}` : "";
-    const m = await api.get<{ metrics: Metrics }>(`${base}/metrics${q}`);
+    // Always send the param (even empty) so "all stressors off" is an explicit
+    // empty scenario, not mistaken for "no scenario → all on".
+    const m = await api.get<{ metrics: Metrics }>(`${base}/metrics?enabled=${en.join(",")}`);
     setMetrics(m.metrics);
   }, [base]);
 
