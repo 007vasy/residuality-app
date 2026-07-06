@@ -17,6 +17,37 @@ export const ROLE_RANK: Record<Role, number> = { viewer: 1, editor: 2, owner: 3 
 export type ArchitectureKind = "naive" | "residual";
 export type AttractorPolarity = "negative" | "acceptable" | "desirable";
 
+/**
+ * Analysis mode. The compute engine is domain-agnostic (components + stressors +
+ * incidence work for any system); the domain drives vocabulary/framing and which
+ * seed library applies.
+ */
+export type Domain = "software" | "company" | "country" | "planet";
+export const DOMAINS: Domain[] = ["software", "company", "country", "planet"];
+
+export const DOMAIN_META: Record<Domain, { label: string; unit: string; blurb: string }> = {
+  software: {
+    label: "Software architecture",
+    unit: "component",
+    blurb: "Stress-test a software system: services, datastores, and integrations.",
+  },
+  company: {
+    label: "Company / enterprise risk",
+    unit: "function",
+    blurb: "Stress the operating model: value chain, functions, and dependencies.",
+  },
+  country: {
+    label: "Country / national risk",
+    unit: "sector",
+    blurb: "Stress a nation: institutions, sectors, and critical dependencies.",
+  },
+  planet: {
+    label: "Planetary / habitat risk",
+    unit: "system",
+    blurb: "Stress a civilisation or habitat: life-support, governance, and ecology.",
+  },
+};
+
 export interface User {
   id: string;
   email: string;
@@ -28,6 +59,8 @@ export interface Project {
   id: string;
   name: string;
   description: string;
+  domain: Domain;
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }

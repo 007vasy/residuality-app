@@ -1,23 +1,36 @@
-import type { Project, ProjectMember, Role } from "@stressforge/core";
+import type { Domain, Project, ProjectMember, Role } from "@stressforge/core";
 import { read, write } from "./driver.js";
 import { uuid } from "./ids.js";
 
-const PROJECT_RETURN = "p { .id, .name, .description, .createdAt, .updatedAt } AS project";
+// coalesce domain/isPublic so pre-existing projects (created before these fields) read sanely.
+const PROJECT_RETURN =
+  "p { .id, .name, .description, domain: coalesce(p.domain, 'software'), isPublic: coalesce(p.isPublic, false), .createdAt, .updatedAt } AS project";
 
 export async function createProject(input: {
   name: string;
   description: string;
   ownerId: string;
   now: string;
+  domain?: Domain;
+  isPublic?: boolean;
 }): Promise<Project> {
   const id = uuid();
   return write(
     `MATCH (u:User {id: $ownerId})
      CREATE (p:Project {id: $id, name: $name, description: $description,
+                        domain: $domain, isPublic: $isPublic,
                         createdAt: $now, updatedAt: $now})
      CREATE (u)-[:MEMBER_OF {role: 'owner'}]->(p)
      RETURN ${PROJECT_RETURN}`,
-    { id, ...input },
+    {
+      id,
+      name: input.name,
+      description: input.description,
+      ownerId: input.ownerId,
+      now: input.now,
+      domain: input.domain ?? "software",
+      isPublic: input.isPublic ?? false,
+    },
     (res) => res.records[0]!.get("project") as Project,
   );
 }
@@ -25,11 +38,35 @@ export async function createProject(input: {
 export async function listProjectsForUser(userId: string): Promise<(Project & { role: Role })[]> {
   return read(
     `MATCH (u:User {id: $userId})-[m:MEMBER_OF]->(p:Project)
-     RETURN p { .id, .name, .description, .createdAt, .updatedAt, role: m.role } AS project
+     RETURN p { .id, .name, .description, domain: coalesce(p.domain, 'software'),
+                isPublic: coalesce(p.isPublic, false), .createdAt, .updatedAt, role: m.role } AS project
      ORDER BY p.updatedAt DESC`,
     { userId },
     (r) => r.get("project") as Project & { role: Role },
   );
+}
+
+/** All public projects — the anonymous gallery. */
+export async function listPublicProjects(): Promise<Project[]> {
+  return read(
+    `MATCH (p:Project) WHERE coalesce(p.isPublic, false) = true
+     RETURN ${PROJECT_RETURN} ORDER BY p.domain, p.name`,
+    {},
+    (r) => r.get("project") as Project,
+  );
+}
+
+export async function isProjectPublic(projectId: string): Promise<boolean> {
+  const rows = await read(
+    `MATCH (p:Project {id: $projectId}) RETURN coalesce(p.isPublic, false) AS pub`,
+    { projectId },
+    (r) => r.get("pub") as boolean,
+  );
+  return rows[0] ?? false;
+}
+
+export async function setProjectPublic(projectId: string, isPublic: boolean): Promise<void> {
+  await write(`MATCH (p:Project {id: $projectId}) SET p.isPublic = $isPublic`, { projectId, isPublic });
 }
 
 export async function getProject(projectId: string): Promise<Project | null> {

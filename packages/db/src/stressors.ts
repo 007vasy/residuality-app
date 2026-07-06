@@ -5,6 +5,39 @@ import { nextSeqId } from "./ids.js";
 const STRESSOR_RETURN =
   "s { .id, .projectId, .name, .category, .novelty, .description, .horizon, .source } AS stressor";
 
+export interface LibraryStressor {
+  name: string;
+  category: string;
+  novelty: number;
+  description: string;
+  /** how many public projects use a stressor with this name */
+  usedBy: number;
+  domains: string[];
+}
+
+/**
+ * Aggregate distinct stressors across all PUBLIC projects, keyed by lowercased name,
+ * for reuse/suggestion. Highest-reach first.
+ */
+export async function listPublicStressorLibrary(): Promise<LibraryStressor[]> {
+  return read(
+    `MATCH (p:Project)-[:HAS_STRESSOR]->(s:Stressor)
+     WHERE coalesce(p.isPublic, false) = true
+     WITH toLower(trim(s.name)) AS key,
+          head(collect(s.name)) AS name,
+          head(collect(s.category)) AS category,
+          max(s.novelty) AS novelty,
+          head(collect(s.description)) AS description,
+          count(DISTINCT p) AS usedBy,
+          collect(DISTINCT coalesce(p.domain, 'software')) AS domains
+     RETURN { name: name, category: category, novelty: novelty, description: description,
+              usedBy: usedBy, domains: domains } AS lib
+     ORDER BY lib.usedBy DESC, lib.novelty DESC, lib.name`,
+    {},
+    (r) => r.get("lib") as LibraryStressor,
+  );
+}
+
 export async function listStressors(projectId: string): Promise<StressorNode[]> {
   return read(
     `MATCH (p:Project {id: $projectId})-[:HAS_STRESSOR]->(s:Stressor)

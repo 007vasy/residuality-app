@@ -18,11 +18,14 @@ import {
   getProject,
   getUserStackFacts,
   importState,
+  isProjectPublic,
   listApiTokens,
   listAttractors,
   listMembers,
   listProjectsForUser,
   listProviderKeys,
+  listPublicProjects,
+  listPublicStressorLibrary,
   listScenarios,
   listAffects,
   removeEdge,
@@ -30,6 +33,7 @@ import {
   resolveApiToken,
   seedEvCharging,
   setCoupling,
+  setProjectPublic,
   setUserStackFacts,
   touchProject,
   updateComponent,
@@ -129,6 +133,69 @@ export async function buildApp(cfg: Config) {
 
   app.get("/api/models", async () => ({ models: SUPPORTED_MODELS, default: cfg.defaultModel }));
 
+  // ---- Public (no auth) read-only routes ----
+  // The whole example gallery is browsable without an account; login is only for editing.
+  const noBroadcast = () => {};
+  async function publicService(projectId: string, reply: FastifyReply) {
+    if (!(await isProjectPublic(projectId))) {
+      await reply.code(404).send({ error: "not found" });
+      return null;
+    }
+    const project = await getProject(projectId);
+    if (!project) {
+      await reply.code(404).send({ error: "not found" });
+      return null;
+    }
+    return new ApiProjectService(projectId, project.name, cfg, noBroadcast);
+  }
+
+  app.get("/api/public/projects", async () => ({ projects: await listPublicProjects() }));
+
+  app.get("/api/public/stressor-library", async () => ({ library: await listPublicStressorLibrary() }));
+
+  app.get("/api/public/projects/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await isProjectPublic(id))) return reply.code(404).send({ error: "not found" });
+    return { project: await getProject(id), role: "viewer" };
+  });
+
+  app.get("/api/public/projects/:id/architecture", async (req, reply) => {
+    const svc = await publicService((req.params as { id: string }).id, reply);
+    if (!svc) return;
+    return await svc.getArchitecture();
+  });
+
+  app.get("/api/public/projects/:id/stressors", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await isProjectPublic(id))) return reply.code(404).send({ error: "not found" });
+    const svc = await publicService(id, reply);
+    if (!svc) return;
+    return { stressors: await svc.listStressors(), affects: await listAffects(id) };
+  });
+
+  app.get("/api/public/projects/:id/residues", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!(await isProjectPublic(id))) return reply.code(404).send({ error: "not found" });
+    const svc = await publicService(id, reply);
+    if (!svc) return;
+    return { residues: await svc.listResidues(), attractors: await listAttractors(id) };
+  });
+
+  app.get("/api/public/projects/:id/metrics", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const svc = await publicService(id, reply);
+    if (!svc) return;
+    const q = req.query as { enabled?: string };
+    const enabled = q.enabled ? q.enabled.split(",").filter(Boolean) : undefined;
+    return { metrics: await svc.getMetrics(enabled) };
+  });
+
+  app.get("/api/public/projects/:id/export", async (req, reply) => {
+    const svc = await publicService((req.params as { id: string }).id, reply);
+    if (!svc) return;
+    return await svc.exportState();
+  });
+
   // ---- BYOK keys (per user) ----
   app.get("/api/keys", { preHandler: authenticate }, async (req) => ({
     keys: await listProviderKeys(req.userId!),
@@ -154,7 +221,14 @@ export async function buildApp(cfg: Config) {
   }));
 
   app.post("/api/projects", { preHandler: authenticate }, async (req) => {
-    const body = z.object({ name: z.string().min(1), description: z.string().default("") }).parse(req.body);
+    const body = z
+      .object({
+        name: z.string().min(1),
+        description: z.string().default(""),
+        domain: z.enum(["software", "company", "country", "planet"]).default("software"),
+        isPublic: z.boolean().default(false),
+      })
+      .parse(req.body);
     const now = new Date().toISOString();
     const project = await createProject({ ...body, ownerId: req.userId!, now });
     await createArchitecture({
@@ -164,6 +238,14 @@ export async function buildApp(cfg: Config) {
       summary: `Architecture for ${project.name}`,
     });
     return { project };
+  });
+
+  app.put("/api/projects/:id/public", { preHandler: authenticate }, async (req, reply) => {
+    const id = await guard(req, reply, "owner");
+    if (!id) return;
+    const { isPublic } = z.object({ isPublic: z.boolean() }).parse(req.body);
+    await setProjectPublic(id, isPublic);
+    return { ok: true };
   });
 
   // Helper: guard membership, returns projectId or sends error.
