@@ -1,0 +1,27 @@
+# Single-container image for Cloud Run: the Fastify API also serves the built SPA.
+# Build context = repo root.  Listens on $PORT (Cloud Run sets 8080).
+FROM node:20-slim AS build
+WORKDIR /app
+RUN corepack enable
+COPY . .
+RUN pnpm install --prod=false
+# Build the SPA and every workspace package the API needs.
+RUN pnpm --filter @stressforge/web build
+RUN pnpm --filter @stressforge/core \
+         --filter @stressforge/db \
+         --filter @stressforge/llm \
+         --filter @stressforge/mcp \
+         --filter @stressforge/api build
+
+FROM node:20-slim
+WORKDIR /app
+RUN corepack enable
+ENV NODE_ENV=production
+# WEB_DIST tells the API where the built SPA lives (see app.ts static serving).
+ENV WEB_DIST=/app/web
+# Copy the whole built workspace (node_modules + dist) — simplest reliable runtime.
+COPY --from=build /app /app
+# Flatten the SPA build to /app/web so WEB_DIST is a stable path.
+RUN cp -r /app/apps/web/dist /app/web
+EXPOSE 8080
+CMD ["node", "apps/api/dist/index.js"]

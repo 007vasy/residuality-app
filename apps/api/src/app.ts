@@ -1,5 +1,8 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { SUPPORTED_MODELS } from "@stressforge/llm";
 import { handleMcpRequest } from "@stressforge/mcp";
@@ -683,6 +686,25 @@ export async function buildApp(cfg: Config) {
   });
 
   app.get("/health", async () => ({ ok: true }));
+
+  // ---- Serve the built SPA from the same service (single-container deploy) ----
+  // Enabled only when WEB_DIST points at a real build, so local API-only dev is
+  // unaffected. Non-API GETs fall back to index.html for client-side routing.
+  const webDist = process.env.WEB_DIST;
+  if (webDist && existsSync(join(webDist, "index.html"))) {
+    await app.register(fastifyStatic, { root: webDist, wildcard: false });
+    app.setNotFoundHandler((req, reply) => {
+      if (
+        req.method === "GET" &&
+        !req.url.startsWith("/api") &&
+        !req.url.startsWith("/mcp") &&
+        !req.url.startsWith("/ws")
+      ) {
+        return reply.sendFile("index.html");
+      }
+      return reply.code(404).send({ error: "not found" });
+    });
+  }
 
   return app;
 }

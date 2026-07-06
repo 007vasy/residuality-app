@@ -32,7 +32,8 @@ function parseEncryptionKey(raw: string | undefined): Buffer {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
-    port: Number(env.API_PORT ?? 4000),
+    // Cloud Run sets PORT (default 8080); fall back to API_PORT for local/dev.
+    port: Number(env.PORT ?? env.API_PORT ?? 4000),
     jwtSecret: env.JWT_SECRET ?? "dev-insecure-secret-change-me",
     encryptionKey: parseEncryptionKey(env.APP_ENCRYPTION_KEY),
     corsOrigins: (env.CORS_ORIGIN ?? "http://localhost:8080,http://localhost:5173")
