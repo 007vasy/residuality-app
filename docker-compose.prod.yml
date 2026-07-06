@@ -1,0 +1,80 @@
+# Production deployment: Neo4j + API + web behind Caddy (automatic HTTPS).
+# Usage:
+#   cp .env.prod.example .env.prod   (fill in DOMAIN, secrets, OAuth creds)
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#
+# Caddy obtains + renews Let's Encrypt certs for ${DOMAIN} automatically.
+services:
+  neo4j:
+    image: neo4j:5.26
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH}
+      NEO4J_PLUGINS: '["apoc","graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_server_memory_heap_max__size: 2G
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    # No published ports: Neo4j is only reachable inside the compose network.
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      API_PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY}
+      DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL:-claude-opus-4-8}
+      CORS_ORIGIN: https://${DOMAIN}
+      PUBLIC_BASE_URL: https://${DOMAIN}
+      # OAuth (optional — leave blank to disable a provider)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      X_CLIENT_ID: ${X_CLIENT_ID:-}
+      X_CLIENT_SECRET: ${X_CLIENT_SECRET:-}
+      SEED_EXAMPLES: ${SEED_EXAMPLES:-true}
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  neo4j-data:
+  neo4j-logs:
+  caddy-data:
+  caddy-config:

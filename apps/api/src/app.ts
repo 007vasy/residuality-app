@@ -39,6 +39,7 @@ import {
   updateComponent,
   updateProject,
   updateScenario,
+  upsertOAuthUser,
   upsertProviderKey,
   createArchitecture,
 } from "@stressforge/db";
@@ -48,6 +49,7 @@ import type { Config } from "./config.js";
 import { makeAuthenticate, requireRole, signJwt } from "./auth.js";
 import { encryptSecret, generateApiToken, hashPassword, hashToken, verifyPassword } from "./crypto.js";
 import { ApiProjectService } from "./service.js";
+import { buildAuthorizeUrl, enabledProviders, handleCallback } from "./oauth.js";
 import { llmClientForUser } from "./llm-resolver.js";
 import { startSse } from "./sse.js";
 import { broadcastChange, joinRoom, leaveRoom } from "./ws.js";
@@ -129,6 +131,43 @@ export async function buildApp(cfg: Config) {
     const user = await findUserById(req.userId!);
     if (!user) return reply.code(404).send({ error: "not found" });
     return { user: publicUser(user) };
+  });
+
+  // ---- Social (OAuth) login: Google + X ----
+  app.get("/api/auth/providers", async () => ({ providers: enabledProviders(cfg) }));
+
+  app.get("/api/auth/oauth/:provider/start", async (req, reply) => {
+    const { provider } = req.params as { provider: string };
+    if (provider !== "google" && provider !== "x") return reply.code(404).send({ error: "unknown provider" });
+    if (!enabledProviders(cfg).includes(provider)) {
+      return reply.code(400).send({ error: `${provider} login is not configured` });
+    }
+    return reply.redirect(buildAuthorizeUrl(cfg, provider));
+  });
+
+  app.get("/api/auth/oauth/:provider/callback", async (req, reply) => {
+    const { provider } = req.params as { provider: string };
+    const { code, state, error } = req.query as { code?: string; state?: string; error?: string };
+    const web = cfg.publicBaseUrl;
+    if (error || !code || !state || (provider !== "google" && provider !== "x")) {
+      return reply.redirect(`${web}/?auth_error=${encodeURIComponent(error ?? "oauth_failed")}`);
+    }
+    try {
+      const profile = await handleCallback(cfg, provider, code, state);
+      const user = await upsertOAuthUser({
+        provider: profile.provider,
+        sub: profile.sub,
+        email: profile.email,
+        displayName: profile.displayName,
+        now: new Date().toISOString(),
+      });
+      const token = signJwt(user.id, cfg.jwtSecret);
+      // Hand the token back to the SPA via URL fragment (not logged by servers).
+      return reply.redirect(`${web}/#token=${encodeURIComponent(token)}`);
+    } catch (e) {
+      req.log.error(e as Error);
+      return reply.redirect(`${web}/?auth_error=oauth_exchange_failed`);
+    }
   });
 
   app.get("/api/models", async () => ({ models: SUPPORTED_MODELS, default: cfg.defaultModel }));

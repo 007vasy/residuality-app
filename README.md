@@ -45,6 +45,19 @@ The concrete public sources are listed in [`PUBLIC-SOURCES.md`](./PUBLIC-SOURCES
 | **Criticality / edge of chaos** | The regime the system sits in: `frozen` (rigid), `edge` (adaptive — the target), `chaotic` (cascading). |
 | **Resilience Score** | A single 0–100 roll-up of coverage, regime, and coupling for at-a-glance risk. |
 
+## Four modes + a public gallery
+
+StressForge stress-tests any system, not just software. Every project has a **domain**:
+
+- **Software architecture** — services, datastores, integrations.
+- **Company / enterprise** — value chain, functions, dependencies.
+- **Country / national** — institutions, sectors, critical dependencies.
+- **Planetary / habitat** — life-support, governance, ecology.
+
+It ships with **14 curated public examples** across these modes — gstack, Linux, Ethereum, Solana, Zcash; Hungary, Australia, USA, China, Argentina; Earth, a hypothetical Mars city-state, an O'Neill cylinder, and a generational ship — each a full stress analysis (stressors across 9 categories with mitigations). The whole gallery is **public and read-only without any login**; sign in (email, or Google / X on production deployments) only to create and edit your own. A cross-example **stressor library** aggregates every distinct stressor for reuse.
+
+> The country/planet examples are resilience stress-tests of an operating model, not political advocacy. Mitigations are written as "the kind of control that *would* need to exist" and flagged as gaps where no such control is publicly established — see [`PUBLIC-SOURCES.md`](./PUBLIC-SOURCES.md) and the [Public-Only Policy](./CONTRIBUTING.md#public-only-policy).
+
 ## Features
 
 - **Interactive incidence matrix** — the centerpiece. Toggle a stressor and every metric recomputes live: per-component criticality (heat), coupling K, regime, Resilience Score, coverage.
@@ -81,6 +94,10 @@ packages/
   llm/    Provider-agnostic Claude client + prompts
   mcp/    MCP server + tools
 ```
+
+## Deploy publicly
+
+`docker compose -f docker-compose.prod.yml` runs the stack behind **Caddy with automatic HTTPS**, with the public example gallery seeded on first boot and optional **Google / X sign-in**. See [`deploy/README.md`](./deploy/README.md) for the full guide (DNS, OAuth app setup, backups).
 
 ## Development
 

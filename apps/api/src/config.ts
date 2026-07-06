@@ -1,3 +1,8 @@
+export interface OAuthProviderConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface Config {
   port: number;
   jwtSecret: string;
@@ -5,6 +10,12 @@ export interface Config {
   corsOrigins: string[];
   defaultProvider: string;
   defaultModel: string;
+  /** Public origin the browser reaches (e.g. https://stressforge.example). Used for OAuth redirects. */
+  publicBaseUrl: string;
+  oauth: {
+    google?: OAuthProviderConfig;
+    x?: OAuthProviderConfig;
+  };
 }
 
 function parseEncryptionKey(raw: string | undefined): Buffer {
@@ -30,5 +41,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .filter(Boolean),
     defaultProvider: env.DEFAULT_LLM_PROVIDER ?? "anthropic",
     defaultModel: env.DEFAULT_LLM_MODEL ?? "claude-opus-4-8",
+    publicBaseUrl: (env.PUBLIC_BASE_URL ?? "http://localhost:8080").replace(/\/$/, ""),
+    oauth: {
+      google:
+        env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+          ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET }
+          : undefined,
+      x:
+        env.X_CLIENT_ID && env.X_CLIENT_SECRET
+          ? { clientId: env.X_CLIENT_ID, clientSecret: env.X_CLIENT_SECRET }
+          : undefined,
+    },
   };
 }

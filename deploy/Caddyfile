@@ -1,0 +1,19 @@
+# Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
+# {$DOMAIN} is supplied from the environment (see docker-compose.prod.yml).
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API, MCP, SSE, and WebSocket all live on the api service.
+	@api path /api/* /mcp /mcp/* /ws
+	handle @api {
+		reverse_proxy api:4000 {
+			# Don't buffer SSE / WebSocket streams.
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the static SPA (served by the web/nginx container).
+	handle {
+		reverse_proxy web:80
+	}
+}

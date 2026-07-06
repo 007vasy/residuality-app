@@ -5,7 +5,18 @@ import { ProjectView } from "./ProjectView";
 type Open = { id: string; readOnly: boolean } | null;
 
 export function App() {
-  const [token, setTok] = useState<string | null>(getToken());
+  // Capture an OAuth token handed back via URL fragment (#token=...).
+  useEffect(() => {
+    const m = location.hash.match(/token=([^&]+)/);
+    if (m) {
+      setToken(decodeURIComponent(m[1]));
+      history.replaceState(null, "", location.pathname);
+    }
+  }, []);
+  const [token, setTok] = useState<string | null>(() => {
+    const m = location.hash.match(/token=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : getToken();
+  });
   const [me, setMe] = useState<{ email: string; displayName: string } | null>(null);
   const [open, setOpen] = useState<Open>(null);
   const [showAbout, setShowAbout] = useState(false);
@@ -279,6 +290,11 @@ function AuthModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: (toke
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [err, setErr] = useState("");
+  const [providers, setProviders] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get<{ providers: string[] }>("/auth/providers").then((r) => setProviders(r.providers)).catch(() => {});
+  }, []);
 
   async function submit() {
     setErr("");
@@ -295,6 +311,17 @@ function AuthModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: (toke
   return (
     <Modal onClose={onClose}>
       <h2 style={{ marginTop: 0 }}>{mode === "login" ? "Sign in" : "Create account"}</h2>
+      {providers.length > 0 && (
+        <div className="list" style={{ marginBottom: 12 }}>
+          {providers.includes("google") && (
+            <button onClick={() => (location.href = "/api/auth/oauth/google/start")}>Continue with Google</button>
+          )}
+          {providers.includes("x") && (
+            <button onClick={() => (location.href = "/api/auth/oauth/x/start")}>Continue with X</button>
+          )}
+          <div className="muted" style={{ textAlign: "center", fontSize: 12 }}>— or use email —</div>
+        </div>
+      )}
       <div className="list">
         {mode === "register" && (
           <input placeholder="Display name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
