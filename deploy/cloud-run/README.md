@@ -13,6 +13,15 @@ Cloud Run service (API + static SPA)  ──►  Neo4j Aura
    Secret Manager (JWT, enc key, Neo4j pw, OAuth) — accessed by a scoped runtime SA
 ```
 
+## 0. Dedicated GCP project (recommended)
+
+Use a **dedicated** GCP project for StressForge (not a shared production project).
+The operator account needs roughly: `roles/run.admin`, `roles/artifactregistry.admin`,
+`roles/secretmanager.admin`, `roles/iam.serviceAccountAdmin`,
+`roles/serviceusage.serviceUsageAdmin`, `roles/iam.serviceAccountUser` (Owner covers all).
+Cloud Build’s default SA needs permission to push to Artifact Registry (normally granted
+when you own the project).
+
 ## 1. Create the Neo4j Aura instance
 
 At <https://console.neo4j.io>: create a database (Aura **Free** is enough for the
@@ -26,9 +35,12 @@ cp deploy/cloud-run/config.env.example deploy/cloud-run/config.env
 # edit config.env: PROJECT_ID, REGION, NEO4J_URI/USER/PASSWORD, (optional) DOMAIN + OAuth
 ```
 
-`JWT_SECRET` and `APP_ENCRYPTION_KEY` are auto-generated if left blank.
+`JWT_SECRET` and `APP_ENCRYPTION_KEY` are auto-generated **once** if left blank and
+the secret does not yet exist in Secret Manager. Redeploys **reuse** existing
+versions (they do not silently rotate). Set an explicit value in `config.env` only
+when you intend to push a new version.
 ⚠️ Once generated, **keep `APP_ENCRYPTION_KEY`** — it encrypts users' BYOK LLM keys;
-losing it means those must be re-entered.
+losing it means those must be re-entered. Do not commit `config.env` (gitignored).
 
 ## 3. Deploy
 

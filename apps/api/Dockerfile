@@ -8,11 +8,11 @@ COPY . .
 RUN pnpm install --prod=false
 
 # Build the API and every workspace package it depends on.
-RUN pnpm --filter @residuality/core \
-         --filter @residuality/db \
-         --filter @residuality/llm \
-         --filter @residuality/mcp \
-         --filter @residuality/api build
+RUN pnpm --filter @stressforge/core \
+         --filter @stressforge/db \
+         --filter @stressforge/llm \
+         --filter @stressforge/mcp \
+         --filter @stressforge/api build
 
 ENV NODE_ENV=production
 EXPOSE 4000

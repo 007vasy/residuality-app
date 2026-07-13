@@ -68,22 +68,50 @@ if ! gcloud artifacts repositories describe "$REPO" --location "$REGION" >/dev/n
 fi
 
 # ---- 3. Secrets in Secret Manager ----
-# put_secret NAME VALUE  — creates the secret if missing, adds a version if the value is non-empty.
-put_secret() {
-  local name="$1" value="$2"
+# ensure_secret NAME  — create empty secret container if missing.
+ensure_secret() {
+  local name="$1"
   if ! gcloud secrets describe "$name" >/dev/null 2>&1; then
     gcloud secrets create "$name" --replication-policy=automatic --quiet
   fi
+}
+
+# put_secret NAME VALUE  — create secret if missing, always add a new version (for
+# intentional operator updates, e.g. Neo4j password or OAuth client rotation).
+put_secret() {
+  local name="$1" value="$2"
+  ensure_secret "$name"
   if [ -n "$value" ]; then
     printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- --quiet >/dev/null
+    echo "    wrote version for $name"
   fi
 }
 
+# ensure_generated_secret NAME [VALUE]  — for JWT_SECRET / APP_ENCRYPTION_KEY:
+#   * if VALUE is non-empty → write that version (operator override)
+#   * else if secret already has any version → reuse (do NOT rotate on redeploy)
+#   * else generate openssl rand -hex 32 and write the first version
+ensure_generated_secret() {
+  local name="$1" value="${2:-}"
+  ensure_secret "$name"
+  if [ -n "$value" ]; then
+    printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- --quiet >/dev/null
+    echo "    wrote provided value for $name"
+    return
+  fi
+  # Already has a version? Keep it — redeploy must not invalidate sessions/BYOK keys.
+  if gcloud secrets versions list "$name" --filter='state:ENABLED' --format='value(name)' --limit=1 2>/dev/null | grep -q .; then
+    echo "    reusing existing $name (not rotating)"
+    return
+  fi
+  value="$(openssl rand -hex 32)"
+  printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- --quiet >/dev/null
+  echo "    generated first version for $name"
+}
+
 echo "==> Writing secrets..."
-[ -z "$JWT_SECRET" ] && JWT_SECRET="$(openssl rand -hex 32)"
-[ -z "$APP_ENCRYPTION_KEY" ] && APP_ENCRYPTION_KEY="$(openssl rand -hex 32)"
-put_secret JWT_SECRET "$JWT_SECRET"
-put_secret APP_ENCRYPTION_KEY "$APP_ENCRYPTION_KEY"
+ensure_generated_secret JWT_SECRET "$JWT_SECRET"
+ensure_generated_secret APP_ENCRYPTION_KEY "$APP_ENCRYPTION_KEY"
 put_secret NEO4J_URI "$NEO4J_URI"
 put_secret NEO4J_PASSWORD "$NEO4J_PASSWORD"
 [ -n "$GOOGLE_CLIENT_ID" ] && put_secret GOOGLE_CLIENT_ID "$GOOGLE_CLIENT_ID"

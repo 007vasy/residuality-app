@@ -4,7 +4,7 @@ WORKDIR /app
 RUN corepack enable
 COPY . .
 RUN pnpm install --prod=false
-RUN pnpm --filter @residuality/web build
+RUN pnpm --filter @stressforge/web build
 
 FROM nginx:alpine
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

@@ -4,6 +4,8 @@ build/
 coverage/
 .env
 .env.local
+.env.prod
+deploy/cloud-run/config.env
 *.log
 .DS_Store
 neo4j-data/
