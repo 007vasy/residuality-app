@@ -10,7 +10,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Neo4jConfig
   return {
     uri: env.NEO4J_URI ?? "bolt://localhost:7687",
     user: env.NEO4J_USER ?? "neo4j",
-    password: env.NEO4J_PASSWORD ?? "residuality",
+    password: env.NEO4J_PASSWORD ?? "stressforge",
   };
 }
 

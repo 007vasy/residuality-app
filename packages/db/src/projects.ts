@@ -46,6 +46,17 @@ export async function listProjectsForUser(userId: string): Promise<(Project & { 
   );
 }
 
+/** Count projects this user owns (MEMBER_OF role owner). Used for demo caps. */
+export async function countOwnedProjects(userId: string): Promise<number> {
+  const rows = await read(
+    `MATCH (u:User {id: $userId})-[m:MEMBER_OF {role: 'owner'}]->(p:Project)
+     RETURN count(p) AS n`,
+    { userId },
+    (r) => Number(r.get("n")),
+  );
+  return rows[0] ?? 0;
+}
+
 /** All public projects — the anonymous gallery. */
 export async function listPublicProjects(): Promise<Project[]> {
   return read(

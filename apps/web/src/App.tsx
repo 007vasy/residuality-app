@@ -290,29 +290,61 @@ function AboutModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+type AuthProvidersResponse = {
+  providers: string[];
+  registration?: { allowed: boolean; inviteRequired: boolean };
+  limits?: { maxProjectsPerUser: number | null };
+};
+
 function AuthModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: (token: string) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [err, setErr] = useState("");
   const [providers, setProviders] = useState<string[]>([]);
+  const [registrationAllowed, setRegistrationAllowed] = useState(true);
+  const [inviteRequired, setInviteRequired] = useState(false);
 
   useEffect(() => {
-    api.get<{ providers: string[] }>("/auth/providers").then((r) => setProviders(r.providers)).catch(() => {});
+    api
+      .get<AuthProvidersResponse>("/auth/providers")
+      .then((r) => {
+        setProviders(r.providers);
+        const allowed = r.registration?.allowed !== false;
+        setRegistrationAllowed(allowed);
+        setInviteRequired(Boolean(r.registration?.inviteRequired));
+        if (!allowed) setMode("login");
+      })
+      .catch(() => {});
   }, []);
 
   async function submit() {
     setErr("");
     try {
+      if (mode === "register" && !registrationAllowed) {
+        setErr("registration is disabled on this deployment");
+        return;
+      }
       const path = mode === "login" ? "/auth/login" : "/auth/register";
-      const body = mode === "login" ? { email, password } : { email, password, displayName };
+      const body =
+        mode === "login"
+          ? { email, password }
+          : {
+              email,
+              password,
+              displayName,
+              ...(inviteRequired || inviteCode ? { inviteCode } : {}),
+            };
       const r = await api.post<{ token: string }>(path, body);
       onAuthed(r.token);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     }
   }
+
+  const canRegister = registrationAllowed;
 
   return (
     <Modal onClose={onClose}>
@@ -340,15 +372,41 @@ function AuthModal({ onClose, onAuthed }: { onClose: () => void; onAuthed: (toke
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
+        {mode === "register" && inviteRequired && (
+          <input
+            placeholder="Invite code"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            autoComplete="off"
+          />
+        )}
         {err && <div className="err">{err}</div>}
         <button className="primary" onClick={submit}>
           {mode === "login" ? "Sign in" : "Register"}
         </button>
-        <div className="muted" style={{ cursor: "pointer" }} onClick={() => setMode(mode === "login" ? "register" : "login")}>
-          {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
-        </div>
+        {canRegister ? (
+          <div
+            className="muted"
+            style={{ cursor: "pointer" }}
+            onClick={() => setMode(mode === "login" ? "register" : "login")}
+          >
+            {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
+          </div>
+        ) : (
+          mode === "register" && (
+            <div className="muted" style={{ fontSize: 12 }}>
+              New accounts are disabled on this public demo. Browse the gallery without signing in, or sign in if you
+              already have an account.
+            </div>
+          )
+        )}
+        {!canRegister && mode === "login" && (
+          <div className="muted" style={{ fontSize: 12 }}>
+            Public demo: registration is closed. The example gallery needs no account.
+          </div>
+        )}
         <div className="muted" style={{ fontSize: 12 }}>
-          Social sign-in (Google / X) is available in production deployments.
+          AI features use your own API key (BYOK). Social sign-in appears when the host has configured it.
         </div>
       </div>
     </Modal>

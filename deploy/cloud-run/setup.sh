@@ -35,9 +35,15 @@ REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 REGION="${REGION:-us-central1}"
 SERVICE="${SERVICE:-stressforge}"
 NEO4J_USER="${NEO4J_USER:-neo4j}"
-DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-claude-opus-4-8}"
+# Demo-friendly default: cheaper model label (BYOK — user pays Anthropic).
+DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-claude-haiku-4-5}"
 MIN_INSTANCES="${MIN_INSTANCES:-0}"
 MAX_INSTANCES="${MAX_INSTANCES:-1}"
+CPU="${CPU:-1}"
+MEMORY="${MEMORY:-512Mi}"
+CONCURRENCY="${CONCURRENCY:-40}"
+TIMEOUT="${TIMEOUT:-300}"
+CPU_ALWAYS_ALLOCATED="${CPU_ALWAYS_ALLOCATED:-false}"
 DOMAIN="${DOMAIN:-}"
 JWT_SECRET="${JWT_SECRET:-}"
 APP_ENCRYPTION_KEY="${APP_ENCRYPTION_KEY:-}"
@@ -45,6 +51,13 @@ GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
 X_CLIENT_ID="${X_CLIENT_ID:-}"
 X_CLIENT_SECRET="${X_CLIENT_SECRET:-}"
+# Abuse controls (public demo)
+ALLOW_REGISTRATION="${ALLOW_REGISTRATION:-true}"
+REGISTRATION_INVITE_CODE="${REGISTRATION_INVITE_CODE:-}"
+MAX_PROJECTS_PER_USER="${MAX_PROJECTS_PER_USER:-5}"
+RATE_LIMIT_MAX="${RATE_LIMIT_MAX:-300}"
+AUTH_RATE_LIMIT_MAX="${AUTH_RATE_LIMIT_MAX:-20}"
+AI_RATE_LIMIT_MAX="${AI_RATE_LIMIT_MAX:-10}"
 
 REPO="stressforge"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/app:$(date +%Y%m%d-%H%M%S)"
@@ -153,7 +166,17 @@ for s in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET X_CLIENT_ID X_CLIENT_SECRET; do
   gcloud secrets describe "$s" >/dev/null 2>&1 && SECRETS="${SECRETS},${s}=${s}:latest"
 done
 
-ENV_VARS="SEED_EXAMPLES=false,NEO4J_USER=${NEO4J_USER},DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL},PUBLIC_BASE_URL=${BASE_URL},CORS_ORIGIN=${BASE_URL}"
+# Escape commas in invite code for gcloud --set-env-vars (comma-separated list).
+# Invite codes with commas are unsupported; strip them.
+INVITE_SAFE="${REGISTRATION_INVITE_CODE//,/}"
+ENV_VARS="SEED_EXAMPLES=false,NEO4J_USER=${NEO4J_USER},DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL},PUBLIC_BASE_URL=${BASE_URL},CORS_ORIGIN=${BASE_URL},ALLOW_REGISTRATION=${ALLOW_REGISTRATION},REGISTRATION_INVITE_CODE=${INVITE_SAFE},MAX_PROJECTS_PER_USER=${MAX_PROJECTS_PER_USER},RATE_LIMIT_MAX=${RATE_LIMIT_MAX},AUTH_RATE_LIMIT_MAX=${AUTH_RATE_LIMIT_MAX},AI_RATE_LIMIT_MAX=${AI_RATE_LIMIT_MAX}"
+
+CPU_FLAG=(--cpu "$CPU" --memory "$MEMORY")
+if [ "$CPU_ALWAYS_ALLOCATED" = "true" ]; then
+  CPU_FLAG+=(--no-cpu-throttling)
+else
+  CPU_FLAG+=(--cpu-throttling)
+fi
 
 # ---- 7. Deploy the Cloud Run service (public read gallery) ----
 echo "==> Deploying Cloud Run service '$SERVICE'..."
@@ -163,7 +186,9 @@ gcloud run deploy "$SERVICE" \
   --service-account "$RUNTIME_SA" \
   --allow-unauthenticated \
   --port 8080 \
-  --cpu 1 --memory 512Mi \
+  "${CPU_FLAG[@]}" \
+  --concurrency "$CONCURRENCY" \
+  --timeout "$TIMEOUT" \
   --min-instances "$MIN_INSTANCES" --max-instances "$MAX_INSTANCES" \
   --set-env-vars "$ENV_VARS" \
   --set-secrets "$SECRETS" \
@@ -206,7 +231,10 @@ cat <<EOF
  - Public example gallery is browsable with no login.
  - Neo4j: ${NEO4J_URI}  (Aura)
  - Runtime SA: ${RUNTIME_SA}  (secretAccessor on individual secrets only)
- - Scaling: min=${MIN_INSTANCES} max=${MAX_INSTANCES}
+ - Scaling: min=${MIN_INSTANCES} max=${MAX_INSTANCES}  cpu=${CPU} mem=${MEMORY} concurrency=${CONCURRENCY}
+ - Cost: scale-to-zero + Aura Free ≈ \$0 idle; BYOK means Anthropic bills users, not you
+ - Abuse: registration=${ALLOW_REGISTRATION} invite=$([ -n "$INVITE_SAFE" ] && echo set || echo none) maxProjects=${MAX_PROJECTS_PER_USER}
+   rateLimits: global=${RATE_LIMIT_MAX} auth=${AUTH_RATE_LIMIT_MAX} ai=${AI_RATE_LIMIT_MAX} /IP/min
 
  If using OAuth, set these redirect URIs in the provider consoles:
    Google:  ${FINAL_URL}/api/auth/oauth/google/callback

@@ -69,15 +69,45 @@ gcloud run domain-mappings create --service stressforge --domain your.domain --r
 Add the CNAME/A record it prints, set `DOMAIN=your.domain` in `config.env`, and re-run
 `setup.sh` so `PUBLIC_BASE_URL`/`CORS_ORIGIN`/OAuth callbacks use the custom domain.
 
-## Cost & scaling
+## Cost & scaling (demo defaults)
 
-- `MIN_INSTANCES=0` (default) → **scales to zero**, ~$0 when idle (Aura Free = $0).
-  First request after idle cold-starts (~1–3s).
-- `MIN_INSTANCES=1` → no cold starts, ~$15–40/mo.
-- **Keep `MAX_INSTANCES=1`** unless you add shared pub/sub: WebSocket live-collaboration
-  uses in-memory rooms, so cross-instance broadcast needs a single instance to be
-  correct. Public read/matrix/risk views don't use WebSocket and scale fine — only the
-  collaborative-edit broadcast is instance-local.
+| Knob | Default | Effect |
+|---|---|---|
+| `MIN_INSTANCES` | `0` | Scale-to-zero → ~$0 when idle |
+| `MAX_INSTANCES` | `1` | Caps spend; required for in-memory WS + rate limits |
+| `CPU` / `MEMORY` | `1` / `512Mi` | Smallest practical shape for gallery + light edit |
+| `CONCURRENCY` | `40` | Limits parallel requests per instance |
+| `TIMEOUT` | `300` | Enough for AI SSE; fails stuck requests |
+| `CPU_ALWAYS_ALLOCATED` | `false` | CPU throttled when idle (cheaper) |
+| Neo4j Aura | Free tier | Enough for the seeded gallery |
+| LLM | BYOK | Host never pays Anthropic |
+
+- First request after idle cold-starts (~1–3s).
+- `MIN_INSTANCES=1` → no cold starts, roughly \$15–40/mo for the Cloud Run side alone.
+- **Keep `MAX_INSTANCES=1`** unless you add shared pub/sub for WebSocket rooms **and** a
+  shared rate-limit store (e.g. Redis). Public gallery reads do not need WebSockets.
+
+## Abuse controls (public demo)
+
+Wired into the API and set by `setup.sh` from `config.env`:
+
+| Variable | Demo default | Purpose |
+|---|---|---|
+| `ALLOW_REGISTRATION` | `true` | Set `false` for gallery-only (no new email accounts) |
+| `REGISTRATION_INVITE_CODE` | empty | If set, signup requires this code |
+| `MAX_PROJECTS_PER_USER` | `5` | Stops unbounded graph growth per account |
+| `RATE_LIMIT_MAX` | `300` | Global req/IP/minute |
+| `AUTH_RATE_LIMIT_MAX` | `20` | Login / register / MCP |
+| `AI_RATE_LIMIT_MAX` | `10` | BYOK AI SSE routes |
+
+The SPA reads `/api/auth/providers` and hides or adapts the register form accordingly.
+
+**Recommended public demo policies:**
+
+1. Gallery always public (no login) — already the product default.
+2. Prefer `REGISTRATION_INVITE_CODE` (share with friends) **or** `ALLOW_REGISTRATION=false`.
+3. Keep `MAX_PROJECTS_PER_USER=5` (or lower).
+4. Put Cloud Armor / Cloudflare in front later if you attract real traffic; app-level limits are a first line only.
 
 ## Notes
 

@@ -1,13 +1,16 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { SUPPORTED_MODELS } from "@stressforge/llm";
 import { handleMcpRequest } from "@stressforge/mcp";
 import {
   addMemberByEmail,
+  countOwnedProjects,
   createApiToken,
   createProject,
   createScenario,
@@ -58,8 +61,21 @@ import { startSse } from "./sse.js";
 import { broadcastChange, joinRoom, leaveRoom } from "./ws.js";
 import { verifyJwt } from "./auth.js";
 
+/** Constant-time string compare for invite codes (pads to equal length). */
+function safeEqualString(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) {
+    // Still compare against self to avoid leaking length via timing of early return alone.
+    timingSafeEqual(ab, ab);
+    return false;
+  }
+  return timingSafeEqual(ab, bb);
+}
+
 export async function buildApp(cfg: Config) {
-  const app = Fastify({ logger: true });
+  // trustProxy: Cloud Run / Caddy sit in front; rate-limit keys on client IP.
+  const app = Fastify({ logger: true, trustProxy: true });
 
   // Treat an empty application/json body as {} — several POSTs (seed, AI actions)
   // are sent with the JSON content-type but no body, which the default parser
@@ -77,6 +93,36 @@ export async function buildApp(cfg: Config) {
 
   await app.register(cors, { origin: cfg.corsOrigins, credentials: true });
   await app.register(websocket);
+
+  // Always register so per-route auth/AI limits work. Global soft ceiling is optional.
+  // In-memory store is correct while Cloud Run MAX_INSTANCES=1 (documented).
+  await app.register(rateLimit, {
+    global: cfg.rateLimitMax > 0,
+    max: cfg.rateLimitMax > 0 ? cfg.rateLimitMax : 10_000,
+    timeWindow: "1 minute",
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: "rate limit exceeded — try again shortly",
+    }),
+  });
+
+  const authRateLimit = {
+    config: {
+      rateLimit: {
+        max: cfg.authRateLimitMax > 0 ? cfg.authRateLimitMax : 10_000,
+        timeWindow: "1 minute",
+      },
+    },
+  };
+  const aiRateLimit = {
+    config: {
+      rateLimit: {
+        max: cfg.aiRateLimitMax > 0 ? cfg.aiRateLimitMax : 10_000,
+        timeWindow: "1 minute",
+      },
+    },
+  };
 
   // Turn validation errors into clean 400s with a readable message instead of a
   // 500 with a raw ZodError blob (which reads as "the app is broken").
@@ -107,14 +153,24 @@ export async function buildApp(cfg: Config) {
   }
 
   // ---- Auth ----
-  app.post("/api/auth/register", async (req, reply) => {
+  app.post("/api/auth/register", authRateLimit, async (req, reply) => {
+    if (!cfg.allowRegistration) {
+      return reply.code(403).send({ error: "registration is disabled on this deployment" });
+    }
     const body = z
       .object({
         email: z.string().trim().email(),
         password: z.string().min(8).max(200),
         displayName: z.string().trim().min(1).max(80),
+        inviteCode: z.string().max(200).optional(),
       })
       .parse(req.body);
+    if (cfg.registrationInviteCode) {
+      const provided = body.inviteCode ?? "";
+      if (!safeEqualString(provided, cfg.registrationInviteCode)) {
+        return reply.code(403).send({ error: "invalid or missing invite code" });
+      }
+    }
     if (await findUserByEmail(body.email)) return reply.code(409).send({ error: "email already registered" });
     const user = await createUser({
       email: body.email,
@@ -125,7 +181,7 @@ export async function buildApp(cfg: Config) {
     return { token: signJwt(user.id, cfg.jwtSecret), user: publicUser(user) };
   });
 
-  app.post("/api/auth/login", async (req, reply) => {
+  app.post("/api/auth/login", authRateLimit, async (req, reply) => {
     const body = z.object({ email: z.string().email(), password: z.string() }).parse(req.body);
     const user = await findUserByEmail(body.email);
     if (!user || !verifyPassword(body.password, user.passwordHash)) {
@@ -141,7 +197,17 @@ export async function buildApp(cfg: Config) {
   });
 
   // ---- Social (OAuth) login: Google + X ----
-  app.get("/api/auth/providers", async () => ({ providers: enabledProviders(cfg) }));
+  // Public config the SPA needs for auth UI (no secrets).
+  app.get("/api/auth/providers", async () => ({
+    providers: enabledProviders(cfg),
+    registration: {
+      allowed: cfg.allowRegistration,
+      inviteRequired: Boolean(cfg.registrationInviteCode),
+    },
+    limits: {
+      maxProjectsPerUser: cfg.maxProjectsPerUser > 0 ? cfg.maxProjectsPerUser : null,
+    },
+  }));
 
   app.get("/api/auth/oauth/:provider/start", async (req, reply) => {
     const { provider } = req.params as { provider: string };
@@ -266,7 +332,7 @@ export async function buildApp(cfg: Config) {
     projects: await listProjectsForUser(req.userId!),
   }));
 
-  app.post("/api/projects", { preHandler: authenticate }, async (req) => {
+  app.post("/api/projects", { preHandler: authenticate }, async (req, reply) => {
     const body = z
       .object({
         name: z.string().trim().min(1).max(200),
@@ -275,6 +341,14 @@ export async function buildApp(cfg: Config) {
         isPublic: z.boolean().default(false),
       })
       .parse(req.body);
+    if (cfg.maxProjectsPerUser > 0) {
+      const owned = await countOwnedProjects(req.userId!);
+      if (owned >= cfg.maxProjectsPerUser) {
+        return reply.code(403).send({
+          error: `project limit reached (max ${cfg.maxProjectsPerUser} per account on this demo)`,
+        });
+      }
+    }
     const now = new Date().toISOString();
     const project = await createProject({ ...body, ownerId: req.userId!, now });
     await createArchitecture({
@@ -639,23 +713,37 @@ export async function buildApp(cfg: Config) {
     }
   }
 
-  app.post("/api/projects/:id/ai/generate-stressors", { preHandler: authenticate }, async (req, reply) => {
-    const body = z.object({ count: z.number().int().min(1).max(60).default(30), focus: z.array(z.string()).default([]) }).parse(req.body ?? {});
-    await aiEndpoint(req, reply, (svc) => svc.generateStressors(body.count, body.focus));
-  });
+  app.post(
+    "/api/projects/:id/ai/generate-stressors",
+    { preHandler: authenticate, ...aiRateLimit },
+    async (req, reply) => {
+      const body = z
+        .object({ count: z.number().int().min(1).max(60).default(30), focus: z.array(z.string()).default([]) })
+        .parse(req.body ?? {});
+      await aiEndpoint(req, reply, (svc) => svc.generateStressors(body.count, body.focus));
+    },
+  );
 
-  app.post("/api/projects/:id/ai/derive-residue", { preHandler: authenticate }, async (req, reply) => {
-    const body = z.object({ stressorId: z.string() }).parse(req.body);
-    await aiEndpoint(req, reply, (svc) => svc.deriveResidue(body.stressorId));
-  });
+  app.post(
+    "/api/projects/:id/ai/derive-residue",
+    { preHandler: authenticate, ...aiRateLimit },
+    async (req, reply) => {
+      const body = z.object({ stressorId: z.string() }).parse(req.body);
+      await aiEndpoint(req, reply, (svc) => svc.deriveResidue(body.stressorId));
+    },
+  );
 
-  app.post("/api/projects/:id/ai/modify-architecture", { preHandler: authenticate }, async (req, reply) => {
-    const body = z.object({ instruction: z.string().min(1) }).parse(req.body);
-    await aiEndpoint(req, reply, (svc) => svc.modifyArchitecture(body.instruction));
-  });
+  app.post(
+    "/api/projects/:id/ai/modify-architecture",
+    { preHandler: authenticate, ...aiRateLimit },
+    async (req, reply) => {
+      const body = z.object({ instruction: z.string().min(1) }).parse(req.body);
+      await aiEndpoint(req, reply, (svc) => svc.modifyArchitecture(body.instruction));
+    },
+  );
 
   // ---- MCP server (per-project bearer token) ----
-  app.post("/mcp", async (req, reply) => {
+  app.post("/mcp", authRateLimit, async (req, reply) => {
     const header = req.headers.authorization;
     const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
     const resolved = token ? await resolveApiToken(hashToken(token)) : null;

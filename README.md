@@ -5,11 +5,11 @@ Open-source, self-hostable tool to **stress-test software architectures**. Model
 Backed by **Neo4j** (an incidence matrix is naturally a graph). Bring your own LLM key (**BYOK**) to have an AI assistant generate stressors, derive mitigations, and edit the architecture — or drive the whole thing from **Claude Code / Claude Desktop via the built-in MCP server**. Teams collaborate on multiple architectures with live updates.
 
 ```bash
-git clone <your-fork-url> stressforge && cd stressforge
+git clone https://github.com/007vasy/residuality-app.git stressforge && cd stressforge
 cp .env.example .env
 # set a real APP_ENCRYPTION_KEY:  openssl rand -hex 32
 docker compose up --build
-# → web UI at http://localhost:8080   ·   Neo4j browser at http://localhost:7474
+# → web UI at http://localhost:8080   ·   Neo4j browser at http://localhost:7475 (mapped)
 ```
 
 Register an account, create a project, click **Seed demo** to load an example, open the **Matrix** tab, and start toggling stressors.
@@ -97,7 +97,22 @@ packages/
 
 ## Deploy publicly
 
-`docker compose -f docker-compose.prod.yml` runs the stack behind **Caddy with automatic HTTPS**, with the public example gallery seeded on first boot and optional **Google / X sign-in**. See [`deploy/README.md`](./deploy/README.md) for the full guide (DNS, OAuth app setup, backups).
+**VM + Caddy:** `docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build` runs Neo4j + API + web behind automatic HTTPS, with optional Google / X sign-in. See [`deploy/README.md`](./deploy/README.md).
+
+**GCP (cost-minimised demo):** one Cloud Run service + Neo4j Aura Free, scale-to-zero, abuse controls (rate limits, optional invite-only registration, project caps). See [`deploy/cloud-run/README.md`](./deploy/cloud-run/README.md).
+
+### Public demo hardening (recommended)
+
+| Control | Env | Demo default |
+|---|---|---|
+| Scale to zero | `MIN_INSTANCES=0` | ~$0 idle on Cloud Run |
+| Single instance | `MAX_INSTANCES=1` | Correct WS + in-memory rate limits |
+| Registration | `ALLOW_REGISTRATION` / `REGISTRATION_INVITE_CODE` | Invite or closed |
+| Project cap | `MAX_PROJECTS_PER_USER` | `5` |
+| Rate limits | `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`, `AI_RATE_LIMIT_MAX` | 300 / 20 / 10 per IP per minute |
+| LLM cost | BYOK + `DEFAULT_LLM_MODEL=claude-haiku-4-5` | Host does not pay Anthropic |
+
+Report security issues via [SECURITY.md](./SECURITY.md).
 
 ## Development
 

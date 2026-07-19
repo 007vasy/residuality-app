@@ -12,7 +12,7 @@ and read-only without login; Google / X sign-in unlocks creating and editing.
 ## 1. Configure
 
 ```bash
-git clone <your-fork-url> stressforge && cd stressforge
+git clone https://github.com/007vasy/residuality-app.git stressforge && cd stressforge
 cp .env.prod.example .env.prod
 ```
 

@@ -45,4 +45,4 @@ Then run the API and web dev servers (see the README → Development).
 
 ## Reporting security issues
 
-Please do not open public issues for security problems. Email the maintainers instead.
+Please do not open public issues for security problems. See [SECURITY.md](./SECURITY.md) — prefer a private GitHub Security Advisory, or email the address listed there.

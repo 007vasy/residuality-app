@@ -16,6 +16,19 @@ export interface Config {
     google?: OAuthProviderConfig;
     x?: OAuthProviderConfig;
   };
+  /**
+   * Abuse controls for public demos.
+   * - allowRegistration: when false, email/password signup is disabled (login + OAuth still work).
+   * - registrationInviteCode: if set, register body must include matching inviteCode.
+   * - maxProjectsPerUser: cap owned projects (0 = unlimited). Demo default should be small.
+   * - rateLimitMax: global requests per IP per minute (0 = disabled).
+   */
+  allowRegistration: boolean;
+  registrationInviteCode?: string;
+  maxProjectsPerUser: number;
+  rateLimitMax: number;
+  authRateLimitMax: number;
+  aiRateLimitMax: number;
 }
 
 function parseEncryptionKey(raw: string | undefined): Buffer {
@@ -30,7 +43,21 @@ function parseEncryptionKey(raw: string | undefined): Buffer {
   return buf;
 }
 
+function envBool(env: NodeJS.ProcessEnv, key: string, defaultValue: boolean): boolean {
+  const v = env[key];
+  if (v === undefined || v === "") return defaultValue;
+  return !["0", "false", "no", "off"].includes(v.toLowerCase());
+}
+
+function envInt(env: NodeJS.ProcessEnv, key: string, defaultValue: number): number {
+  const v = env[key];
+  if (v === undefined || v === "") return defaultValue;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : defaultValue;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const invite = (env.REGISTRATION_INVITE_CODE ?? "").trim();
   return {
     // Cloud Run sets PORT (default 8080); fall back to API_PORT for local/dev.
     port: Number(env.PORT ?? env.API_PORT ?? 4000),
@@ -53,5 +80,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           ? { clientId: env.X_CLIENT_ID, clientSecret: env.X_CLIENT_SECRET }
           : undefined,
     },
+    allowRegistration: envBool(env, "ALLOW_REGISTRATION", true),
+    registrationInviteCode: invite || undefined,
+    maxProjectsPerUser: envInt(env, "MAX_PROJECTS_PER_USER", 0),
+    // Global soft ceiling; auth/AI routes use tighter limits below.
+    rateLimitMax: envInt(env, "RATE_LIMIT_MAX", 300),
+    authRateLimitMax: envInt(env, "AUTH_RATE_LIMIT_MAX", 20),
+    aiRateLimitMax: envInt(env, "AI_RATE_LIMIT_MAX", 10),
   };
 }
